@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TotalRecoll</title>
+<style>
+:root{--forest:#06402B;--forest2:#1A7F55;--mint:#e3f0e8;--ink:#18201d;--muted:#66756e;--line:#dde4df;--bg:#f5f7f5;--card:#fff;--amber:#94610d;--amber-bg:#fff6df;--red:#a23939;--red-bg:#fdecec}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--forest:#7fd1a8;--forest2:#4fb985;--mint:#1d3a2e;--ink:#e6ece9;--muted:#9aaba3;--line:#2c3833;--bg:#111816;--card:#18211e;--amber:#f0c060;--amber-bg:#3a2f14;--red:#f08f8f;--red-bg:#3b1d1d}}
+:root[data-theme="dark"]{--forest:#7fd1a8;--forest2:#4fb985;--mint:#1d3a2e;--ink:#e6ece9;--muted:#9aaba3;--line:#2c3833;--bg:#111816;--card:#18211e;--amber:#f0c060;--amber-bg:#3a2f14;--red:#f08f8f;--red-bg:#3b1d1d}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+header{background:#06402B;color:#fff;padding:16px 24px}
+header b{font-size:20px} header span{opacity:.75;margin-left:10px;font-size:13px}
+main{max-width:1600px;margin:0 auto;padding:20px 16px}
+.inputs{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+.card h2{margin:0 0 4px;font-size:16px} .card p{margin:0 0 12px;color:var(--muted);font-size:12px}
+.btn{display:inline-flex;align-items:center;gap:6px;border:0;border-radius:9px;padding:9px 14px;font:inherit;font-weight:700;cursor:pointer;background:var(--forest2);color:#fff}
+.btn.light{background:var(--mint);color:var(--forest)}
+input[type=file]{display:none}
+.info{margin-top:10px;color:var(--muted);font-size:12px;display:flex;flex-wrap:wrap;gap:6px}
+.chip{background:var(--mint);color:var(--forest);border-radius:999px;padding:3px 4px 3px 10px}
+.chip button{border:0;background:none;color:inherit;cursor:pointer;font-size:14px}
+.opts{margin:14px 0;display:flex;gap:16px;flex-wrap:wrap;align-items:center;color:var(--muted);font-size:13px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:16px 0}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
+.kpi b{display:block;font-size:22px;color:var(--forest)} .kpi span{font-size:12px;color:var(--muted)}
+.kpi.alert b{color:var(--amber)}
+.tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.tools input,.tools select{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:9px;padding:8px 10px;font:inherit}
+.tools input{flex:1;min-width:180px}
+.scroll{overflow:auto;max-height:70vh;border:1px solid var(--line);border-radius:10px;background:var(--card)}
+table{border-collapse:separate;border-spacing:0;font-size:12px;width:max-content;min-width:100%}
+th,td{padding:6px 8px;border-bottom:1px solid var(--line);border-right:1px solid var(--line);text-align:left;vertical-align:top;max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+th{position:sticky;top:0;background:var(--mint);color:var(--forest);z-index:1}
+td:first-child,th:first-child{position:sticky;left:0;background:var(--card);z-index:2;font-weight:600}
+th:first-child{background:var(--mint);z-index:3}
+tr.warn td:first-child{color:var(--amber)} tr.bad td:first-child{color:var(--red)}
+details{margin-top:16px} summary{cursor:pointer;font-weight:700}
+.muted{color:var(--muted);font-size:12px}
+#toasts{position:fixed;right:16px;bottom:16px;display:flex;flex-direction:column;gap:8px;z-index:10}
+.toast{background:#20352d;color:#fff;border-radius:10px;padding:10px 14px;max-width:420px}
+.toast.success{background:#286840} .toast.error{background:#9d3939}
+@media (max-width:760px){.inputs{grid-template-columns:1fr}header span{display:block;margin:4px 0 0}}
+</style>
+</head>
+<body>
+<header><b>TotalRecoll</b><span>Recollement Tous contrats × ExtracTerre → tableau d’opérations de l’Observatoire</span></header>
+<main>
+  <div class="inputs">
+    <section class="card">
+      <h2>1. Tous contrats (Salesforce)</h2>
+      <p>Fichier .xlsx contenant les colonnes « Numéro du contrat » et « Opération: Code interne » (feuille OPERATIONS de préférence).</p>
+      <label class="btn">Choisir le fichier<input id="sfFile" type="file" accept=".xlsx,.xls"></label>
+      <div class="info" id="sfInfo">Aucun fichier</div>
+    </section>
+    <section class="card">
+      <h2>2. ExtracTerre</h2>
+      <p>Session .json ou export Multi-projets .xlsx (feuille « Données par bâtiment »). Plusieurs fichiers possibles : le dernier chargé l’emporte sur une même opération.</p>
+      <label class="btn">Ajouter des fichiers<input id="etFile" type="file" accept=".json,.xlsx" multiple></label>
+      <div class="info" id="etInfo">Aucun fichier</div>
+    </section>
+  </div>
+  <div class="opts">
+    <label><input type="checkbox" id="keepSf"> En cas d’écart, garder la valeur déjà présente dans Tous contrats (sinon ExtracTerre l’emporte)</label>
+    <span>Les fichiers sont lus dans le navigateur : rien n’est envoyé sur Internet.</span>
+  </div>
+  <section id="results" hidden>
+    <div class="kpis" id="kpis"></div>
+    <div class="tools">
+      <select id="filter" aria-label="Filtrer">
+        <option value="all">Toutes les lignes</option>
+        <option value="ok">Recollées</option>
+        <option value="check">À contrôler (conflits, ExtracTerre seul, à vérifier)</option>
+        <option value="sf">Salesforce seul</option>
+      </select>
+      <input id="search" type="search" placeholder="Rechercher (contrat, OPE, nom, MOA…)" aria-label="Rechercher">
+      <button class="btn" id="copyBtn">Copier pour Google Sheets</button>
+      <button class="btn light" id="xlsxBtn">Télécharger .xlsx</button>
+    </div>
+    <div class="muted" id="shown"></div>
+    <div class="scroll"><table id="table"></table></div>
+    <details><summary>Écarts de valeur (<span id="ecartsCount">0</span>)</summary>
+      <p class="muted">Cellules déjà remplies dans Tous contrats dont la valeur diffère d’ExtracTerre.</p>
+      <div class="scroll"><table id="ecarts"></table></div>
+    </details>
+  </section>
+</main>
+<div id="toasts"></div>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
