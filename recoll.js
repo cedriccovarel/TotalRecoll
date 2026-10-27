@@ -21,8 +21,12 @@ export const ALIAS={
   'DPE Énergie avant travaux':'DPE énergie avant travaux','DPE Énergie après travaux final':'DPE énergie après travaux final',
   'Tags':'TAG'
 };
-const TECH_LABELS=[...ET_FIELDS.map(f=>f[1]),'Tags'];
+export const TECH_LABELS=[...ET_FIELDS.map(f=>f[1]),'Tags'];
 const TECH_SET=new Set(TECH_LABELS);
+export const targetColumn=l=>ALIAS[l]||l;
+
+// Nature de chaque ligne produite (filtres et couleurs de l'interface).
+export const KINDS={recolle:'Recollée',vide:'Recollée sans bâtiment ExtracTerre',sf:'Salesforce seul',et:'ExtracTerre seul',conflit:'Conflit contrat / OPE'};
 
 export function normContract(v){
   const m=String(v??'').match(/^\s*0*(\d{1,8})(?:\.0+)?\s*$/);
@@ -32,11 +36,10 @@ export function normOpe(v){
   const m=String(v??'').match(/OPE[\s_-]*(\d{1,6})\b/i);
   return m?'OPE-'+m[1].padStart(6,'0'):'';
 }
-const empty=v=>v==null||String(v).trim()===''||v==='#N/A';
+export const empty=v=>v==null||String(v).trim()===''||v==='#N/A';
 function same(a,b){
   const na=Number(String(a).replace(',','.')), nb=Number(String(b).replace(',','.'));
   if(Number.isFinite(na)&&Number.isFinite(nb)) return Math.abs(na-nb)<=1e-6*Math.max(1,Math.abs(na));
-  if(a instanceof Date||b instanceof Date) return +new Date(a)===+new Date(b);
   return String(a).trim().toLowerCase()===String(b).trim().toLowerCase();
 }
 
@@ -47,14 +50,16 @@ export function etOperation(buildings,ids=[],source=''){
   const code=all.map(normOpe).find(Boolean)||'';
   return {contract,code,source,buildings:buildings.map(b=>Object.fromEntries(Object.entries(b).filter(([k,v])=>TECH_SET.has(k)&&!empty(v))))};
 }
+// Clé d'une décision d'écart (stable d'un recollement à l'autre).
+export const ecartKey=e=>`${e.contrat||e.ope}|${e.batiment}|${e.colonne}`;
 
 // sf = {header:[], rows:[[]]} ; etOps = [etOperation] (la dernière source chargée l'emporte sur une même opération).
-// keepSalesforce : en cas d'écart, la valeur déjà présente dans Tous contrats est conservée (sinon ExtracTerre l'emporte).
-export function recoll(sf,etOps,{keepSalesforce=false}={}){
+// keepSalesforce : choix par défaut en cas d'écart ; decisions[ecartKey] = 'sf' | 'et' le remplace écart par écart.
+export function recoll(sf,etOps,{keepSalesforce=false,decisions={}}={}){
   const header=[...sf.header];
   const ci=header.indexOf(CONTRACT_COL), oi=header.indexOf(OPE_COL);
   if(ci<0||oi<0) throw new Error(`Colonnes « ${CONTRACT_COL} » et « ${OPE_COL} » introuvables dans le tableau Tous contrats.`);
-  // Groupes Salesforce : lignes consécutives ou non partageant le même contrat (sinon la même OPE).
+  // Groupes Salesforce : lignes partageant le même contrat (sinon la même OPE).
   const groups=new Map(), byContract=new Map(), byOpe=new Map();
   sf.rows.forEach((r,i)=>{
     const c=normContract(r[ci]), o=normOpe(r[oi]);
@@ -68,61 +73,71 @@ export function recoll(sf,etOps,{keepSalesforce=false}={}){
   const unique=new Map(); etOps.forEach((op,i)=>unique.set(op.contract||op.code||'n'+i,op));
   for(const op of unique.values()){
     const gc=op.contract&&byContract.get(op.contract), go=op.code&&byOpe.get(op.code);
-    let g=gc||go, status;
-    if(gc&&go&&gc!==go){ orphans.push({op,status:`Conflit : contrat ${op.contract} et ${op.code} pointent vers deux opérations Salesforce`}); continue; }
-    if(g&&op.contract&&g.contracts.size&&!g.contracts.has(op.contract)){ orphans.push({op,status:`Conflit : ${op.code} est rattachée au contrat ${[...g.contracts][0]} dans Salesforce, pas ${op.contract}`}); continue; }
-    if(g&&op.code&&g.opes.size&&!g.opes.has(op.code)){ orphans.push({op,status:`Conflit : contrat ${op.contract} porte ${[...g.opes][0]} dans Salesforce, pas ${op.code}`}); continue; }
-    if(!g){ orphans.push({op,status:op.contract||op.code?'ExtracTerre seul (absent de Tous contrats)':'ExtracTerre seul (ni contrat ni OPE trouvés)'}); continue; }
-    status=gc&&go?'Recollé (contrat + OPE)':gc?'Recollé (contrat)':'Recollé (OPE)';
-    if(matched.has(g)) status+=' — remplace une autre source ExtracTerre';
-    matched.set(g,{op,status});
+    const g=gc||go;
+    if(gc&&go&&gc!==go){ orphans.push({op,kind:'conflit',status:`Conflit : contrat ${op.contract} et ${op.code} désignent deux opérations Salesforce différentes`}); continue; }
+    if(g&&op.contract&&g.contracts.size&&!g.contracts.has(op.contract)){ orphans.push({op,kind:'conflit',status:`Conflit : ${op.code} est rattachée au contrat ${[...g.contracts][0]} dans Salesforce, pas ${op.contract}`}); continue; }
+    if(g&&op.code&&g.opes.size&&!g.opes.has(op.code)){ orphans.push({op,kind:'conflit',status:`Conflit : le contrat ${op.contract} porte ${[...g.opes][0]} dans Salesforce, pas ${op.code}`}); continue; }
+    if(!g){ orphans.push({op,kind:'et',status:op.contract||op.code?'ExtracTerre seul (absent de Tous contrats)':'ExtracTerre seul (ni contrat ni OPE trouvés)'}); continue; }
+    let status=gc&&go?'Recollé (contrat + OPE)':gc?'Recollé (contrat)':'Recollé (OPE)', replaced=false;
+    if(matched.has(g)){ status+=' — remplace une autre source ExtracTerre'; replaced=true; }
+    matched.set(g,{op,status,replaced,via:gc&&go?'both':gc?'contract':'ope'});
   }
   // Colonnes : celles du tableau, puis les champs ExtracTerre sans équivalent qui ont une valeur.
-  const target=l=>ALIAS[l]||l;
   const used=new Set(etOps.flatMap(op=>op.buildings.flatMap(Object.keys)));
-  const extra=TECH_LABELS.filter(l=>used.has(l)&&!header.includes(target(l))&&l!==BUILDING_COL);
+  const extra=TECH_LABELS.filter(l=>used.has(l)&&!header.includes(targetColumn(l))&&l!==BUILDING_COL);
+  const sfWidth=header.length;
   header.push(BUILDING_COL,...extra,STATUS_COL);
   const col=Object.fromEntries(header.map((h,i)=>[h,i]));
-  const techCols=new Set(TECH_LABELS.map(target).filter(h=>h in col));
-  const rows=[], ecarts=[], stats={recolles:0,salesforceSeul:0,etSeul:0,conflits:0,lignes:0,ecarts:0,aVerifier:0};
+  const techCols=[...new Set(TECH_LABELS.map(targetColumn).filter(h=>h in col))];
+  const rows=[], meta=[], ecarts=[];
+  const stats={recolles:0,salesforceSeul:0,etSeul:0,conflits:0,lignes:0,ecarts:0,aVerifier:0,etOperations:unique.size,etBatiments:0,viaContrat:0,viaOpe:0,viaDeux:0};
   const width=header.length;
-  const overlay=(row,b,op)=>{
+  // Écrit les valeurs d'un bâtiment ExtracTerre dans la ligne ; renvoie les colonnes remplies par ExtracTerre.
+  const overlay=(row,b,op,rowIndex)=>{
+    const filled=[];
     for(const [label,v] of Object.entries(b)){
-      const h=target(label); const j=col[h]; if(j==null) continue;
+      const h=targetColumn(label), j=col[h]; if(j==null) continue;
       if(!empty(row[j])&&!same(row[j],v)&&h!==BUILDING_COL){
-        ecarts.push({contrat:op.contract,ope:op.code,batiment:b[BUILDING_COL]||'',colonne:h,salesforce:row[j],extracterre:v,retenu:keepSalesforce?'Salesforce':'ExtracTerre',source:op.source});
-        if(keepSalesforce) continue;
+        const e={contrat:normContract(row[ci])||op.contract,ope:normOpe(row[oi])||op.code,batiment:b[BUILDING_COL]||'',colonne:h,salesforce:row[j],extracterre:v,source:op.source,rowIndex};
+        e.key=ecartKey(e); const choice=decisions[e.key]||(keepSalesforce?'sf':'et');
+        e.retenu=choice==='sf'?'Salesforce':'ExtracTerre'; e.decided=!!decisions[e.key]; ecarts.push(e);
+        if(choice==='sf') continue;
       }
-      row[j]=v;
+      row[j]=v; filled.push(j);
     }
+    return filled;
   };
   for(const g of groups.values()){
     const m=matched.get(g);
     if(!m||!m.op.buildings.length){
-      g.rows.forEach(i=>{const r=sf.rows[i].slice(0,sf.header.length); r.length=width; r[col[STATUS_COL]]=m?'Recollé — aucun bâtiment ExtracTerre':'Salesforce seul'; rows.push(r);});
-      stats.salesforceSeul+=m?0:1; continue;
+      g.rows.forEach(i=>{ const r=sf.rows[i].slice(0,sfWidth); r.length=width; r[col[STATUS_COL]]=m?'Recollé — aucun bâtiment ExtracTerre':'Salesforce seul'; rows.push(r); meta.push({kind:m?'vide':'sf',check:false,et:[],group:g.key}); });
+      if(m) stats.recolles++; else stats.salesforceSeul++; continue;
     }
-    stats.recolles++;
+    stats.recolles++; stats[m.via==='both'?'viaDeux':m.via==='contract'?'viaContrat':'viaOpe']++;
     const k=g.rows.length, n=m.op.buildings.length;
     m.op.buildings.forEach((b,i)=>{
       // Lignes Salesforce déjà découpées par bâtiment : appariement dans l'ordre ; sinon la 1re ligne sert de base.
-      const base=sf.rows[g.rows[k===n?i:0]].slice(0,sf.header.length); base.length=width;
-      if(k>1&&k!==n) techCols.forEach(j=>{base[col[j]]=undefined;});
-      overlay(base,b,m.op);
-      let st=m.status; if(k>1&&k!==n){st+=` — à vérifier : ${k} lignes Salesforce pour ${n} bâtiments`; stats.aVerifier++;}
-      base[col[STATUS_COL]]=st; rows.push(base);
+      const base=sf.rows[g.rows[k===n?i:0]].slice(0,sfWidth); base.length=width;
+      const mismatch=k>1&&k!==n;
+      if(mismatch) techCols.forEach(h=>{ base[col[h]]=undefined; });
+      const et=overlay(base,b,m.op,rows.length);
+      let st=m.status; if(mismatch){ st+=` — à vérifier : ${k} lignes Salesforce pour ${n} bâtiments`; stats.aVerifier++; }
+      base[col[STATUS_COL]]=st; rows.push(base); meta.push({kind:'recolle',check:mismatch||m.replaced,et,group:g.key,source:m.op.source});
     });
+    stats.etBatiments+=n;
   }
-  for(const {op,status} of orphans){
-    status.startsWith('Conflit')?stats.conflits++:stats.etSeul++;
+  for(const {op,kind,status} of orphans){
+    kind==='conflit'?stats.conflits++:stats.etSeul++;
     (op.buildings.length?op.buildings:[{}]).forEach(b=>{
-      const r=new Array(width); r[ci]=op.contract; r[oi]=op.code; overlay(r,b,op); r[col[STATUS_COL]]=`${status} — ${op.source}`; rows.push(r);
+      const r=new Array(width); r[ci]=op.contract; r[oi]=op.code; const et=overlay(r,b,op,rows.length);
+      r[col[STATUS_COL]]=`${status} — ${op.source}`; rows.push(r); meta.push({kind,check:true,et,group:'',source:op.source});
     });
+    stats.etBatiments+=op.buildings.length;
   }
   // Format 0000xxxx et OPE-XXXXXX partout.
   rows.forEach(r=>{ if(!empty(r[ci])) r[ci]=normContract(r[ci])||r[ci]; if(!empty(r[oi])) r[oi]=normOpe(r[oi])||r[oi]; });
   stats.lignes=rows.length; stats.ecarts=ecarts.length;
-  return {header,rows,ecarts,stats};
+  return {header,rows,meta,ecarts,stats,sfWidth,extra};
 }
 
 // Session ExtracTerre (.json) → opérations ; les clés internes sont traduites en libellés.

@@ -1,6 +1,6 @@
 // Données fictives uniquement.
 import assert from 'node:assert/strict';
-import {recoll,opsFromSession,opsFromBuildingRows,normContract,normOpe} from './recoll.js';
+import {recoll,opsFromSession,opsFromBuildingRows,normContract,normOpe,ecartKey} from './recoll.js';
 
 assert.equal(normContract(258),'00000258');
 assert.equal(normContract('00004398'),'00004398');
@@ -74,6 +74,15 @@ assert.equal(r3[col('Cep projet')],88);
 assert.equal(r3[col('Mode constructif')],'Bois');
 assert.equal(out2.header.includes('Maître d\'ouvrage: Nom de la société'),false);
 
+// Nature des lignes, cellules issues d'ExtracTerre, décision écart par écart.
+const k=i=>out.meta[out.rows.findIndex(r=>r[0]===i)].kind;
+assert.deepEqual(['00001001','00001003','00009999'].map(k),['recolle','sf','et']);
+assert.ok(out.meta[out.rows.findIndex(r=>r[0]==='00001001')].et.includes(col('Cep projet')));
+assert.equal(out.stats.viaContrat,1); assert.equal(out.stats.viaOpe,1); assert.equal(out.stats.conflits,1);
+const dec=recoll(sf,ops,{decisions:{[out.ecarts[0].key]:'sf'}});
+assert.equal(dec.rows.filter(r=>r[0]==='00001002')[1][col('Cep projet')],95);
+assert.equal(dec.ecarts[0].decided,true);
+assert.equal(ecartKey(out.ecarts[0]),'00001002|Bât 2|Cep projet');
 assert.throws(()=>recoll({header:['x'],rows:[]},[]),/introuvables/);
 assert.throws(()=>opsFromSession({},'x'),/session ExtracTerre/);
 console.log('TotalRecoll — vérifications OK');

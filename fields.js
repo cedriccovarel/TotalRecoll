@@ -1,4 +1,4 @@
-// Généré depuis ExtracTerre js/config.js (FIELD_DEFS) : champs techniques par bâtiment [clé, libellé].
+// Généré depuis ExtracTerre js/config.js (FIELD_DEFS) : champs techniques et localisation par bâtiment [clé, libellé].
 export const ET_FIELDS=[["building","Bâtiment"],
 ["housing_count","Nombre de logements"],
 ["shab","Surface bâtiment (SHAB / Sref / SU / SURT / SRT)"],
@@ -111,4 +111,11 @@ export const ET_FIELDS=[["building","Bâtiment"],
 ["ges_before","GES avant travaux (kgCO2/m²)"],
 ["ges_ref","GES Ref"],
 ["ges_gain","Gain GES"],
-["q4pa_surf","Q4Pa-surf (m³/h.m²)"]];
+["q4pa_surf","Q4Pa-surf (m³/h.m²)"],
+["address","Adresse"],
+["postcode","Code postal"],
+["city","Ville"],
+["insee_code","Code INSEE"],
+["latitude","Latitude"],
+["longitude","Longitude"],
+["geocode_precision","Géolocalisation"]];
