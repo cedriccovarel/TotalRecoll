@@ -3,18 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
 <title>TotalRecoll</title>
 <link rel="icon" href="assets/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Michroma&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="styles.css?v=4">
+<link rel="stylesheet" href="styles.css?v=5">
 </head>
 <body>
 <header class="top">
   <a class="brand" href="#step-sources">
     <img src="assets/prestaterre_logo_green.png" alt="Prestaterre Certifications" class="logo">
-    <span class="product">TotalRecoll</span>
+    <span class="product">TotalRecoll<small>Mémoire de l’Observatoire</small></span>
   </a>
   <nav class="steps" aria-label="Étapes">
     <a href="#step-sources" class="step" data-step="1"><i>1</i>Sources</a>
@@ -28,13 +29,15 @@
   <section id="step-sources" class="seam" aria-label="Sources">
     <article class="drop sf" id="dropSf" tabindex="0" role="button" aria-describedby="sfHint">
       <h2>Tous contrats</h2>
-      <p id="sfHint">Export Salesforce .xlsx, feuille OPERATIONS. Glissez le fichier ici ou cliquez pour le choisir.</p>
+      <p class="role">Ce que Salesforce déclare</p>
+      <p id="sfHint">Export .xlsx, feuille OPERATIONS. Glissez le fichier ici ou cliquez pour le choisir.</p>
       <input id="sfFile" type="file" accept=".xlsx,.xls" hidden>
       <div class="cards" id="sfCards"></div>
     </article>
 
     <div class="stitch" aria-live="polite">
-      <p class="next" id="nextHint">Déposez les deux fichiers. Chaque opération ExtracTerre est rattachée à sa ligne Tous contrats par le numéro de contrat (0000xxxx) ou le code OPE.</p>
+      <span class="scanner-label" aria-hidden="true">Scanner de recollement</span>
+      <p class="next" id="nextHint">Chargez les deux mémoires. Le scanner rattache chaque opération ExtracTerre à sa ligne Tous contrats par le numéro de contrat (0000xxxx) ou le code OPE.</p>
       <div class="busy" id="busy" hidden role="status"><span class="spin" aria-hidden="true"></span><span id="busyText">Lecture…</span></div>
       <p class="match" id="matchLine"></p>
       <div class="strip" id="matchBar"></div>
@@ -43,6 +46,7 @@
 
     <article class="drop et" id="dropEt" tabindex="0" role="button" aria-describedby="etHint">
       <h2>ExtracTerre</h2>
+      <p class="role">Ce que les documents prouvent</p>
       <p id="etHint">Session .json ou export Multi-projets .xlsx, un ou plusieurs fichiers. Sur une même opération, le dernier chargé l’emporte.</p>
       <input id="etFile" type="file" accept=".json,.xlsx" multiple hidden>
       <div class="cards" id="etCards"></div>
@@ -123,7 +127,7 @@
 </aside>
 
 <dialog id="help" aria-labelledby="helpTitle">
-  <h3 id="helpTitle">Comment TotalRecoll recolle</h3>
+  <h3 id="helpTitle">Comment fonctionne le recollement</h3>
   <ul>
     <li><b>Clés.</b> Numéro de contrat (0000xxxx) et code d’opération (OPE-XXXXXX). Si les deux désignent des opérations Salesforce différentes, la ligne est en conflit et rien n’est fusionné.</li>
     <li><b>Une ligne par bâtiment.</b> Chaque bâtiment ExtracTerre devient une ligne ; les colonnes Salesforce (statut, maître d’ouvrage, dates, totaux) sont recopiées sur chacune. Si Tous contrats a déjà autant de lignes que de bâtiments, elles sont associées dans l’ordre ; sinon la ligne est à vérifier.</li>
@@ -137,6 +141,6 @@
 <div id="toasts" aria-live="polite"></div>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script type="module" src="app.js?v=4"></script>
+<script type="module" src="app.js?v=5"></script>
 </body>
 </html>

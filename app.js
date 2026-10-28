@@ -64,7 +64,7 @@ function run(){
   if(!ok){ $('matchLine').innerHTML=''; $('matchBar').innerHTML=''; $('matchLegend').innerHTML=''; }
   $('step-control').hidden=!ok; $('step-export').hidden=!ok; $('nextHint').hidden=ok;
   renderSteps();
-  if(ok) renderControl();
+  if(ok){ renderControl(); const sc=document.querySelector('.stitch'); sc.classList.remove('scan'); void sc.offsetWidth; sc.classList.add('scan'); }
 }
 function renderSteps(){
   const ok=!!state.result, loaded=!!state.sf&&state.et.length>0;
@@ -181,7 +181,7 @@ function renderMap(){
   setTimeout(()=>state.map.invalidateSize(),0);
   state.mapLayer?.remove();
   state.mapLayer=L.featureGroup(pts.map(p=>{ const x=rowLabel(p.i);
-    return L.circleMarker([p.lat,p.lon],{radius:7,color:'#fff',weight:2,fillColor:'#17865A',fillOpacity:.9}).bindPopup(`<b>${esc(x.title)}</b><br>${esc(x.sub)}<br><button class="btn small" data-open="${p.i}" type="button">Détail</button>`); })).addTo(state.map);
+    return L.circleMarker([p.lat,p.lon],{radius:7,color:'#1A0B08',weight:2,fillColor:'#4FE0D2',fillOpacity:.9}).bindPopup(`<b>${esc(x.title)}</b><br>${esc(x.sub)}<br><button class="btn small" data-open="${p.i}" type="button">Détail</button>`); })).addTo(state.map);
   if(pts.length) state.map.fitBounds(state.mapLayer.getBounds().pad(.15),{maxZoom:16});
 }
 

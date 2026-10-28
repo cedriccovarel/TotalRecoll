@@ -1,64 +1,56 @@
-/* TotalRecoll — deux registres face à face (bleu Tous contrats, vert ExtracTerre) et la couture qui les relie.
-   La couleur dit toujours d'où vient une valeur ; l'ambre et le rouge sont réservés aux contrôles. */
+/* TotalRecoll — dans l'esprit de Total Recall : une colonie martienne la nuit, un scanner à rayons X au centre.
+   Orange poussière = ce que Tous contrats déclare ; cyan rayons X = ce qu'ExtracTerre a lu ; jaune et rouge = contrôles. */
 :root{
-  --paper:#F4F7F6;--surface:#FFFFFF;--sunk:#EBF0EE;--line:#D5DEDA;--line-strong:#B4C3BC;
-  --ink:#0F2A21;--ink-2:#4B5F57;--ink-3:#71827B;
-  --brand:#06402B;
-  --sf:#2D5B8C;--sf-wash:#E7EEF6;--sf-ink:#244A73;
-  --et:#17865A;--et-wash:#E2F2EA;--et-ink:#0F6644;
-  --check:#A86A00;--check-wash:#FBF0D9;--bad:#B42318;--bad-wash:#FBE7E4;
-  --focus:#2D5B8C;
+  color-scheme:dark;
+  --paper:#170A07;--surface:#211009;--sunk:#2B150D;--line:#3E2015;--line-strong:#5E3222;
+  --ink:#F4E6D8;--ink-2:#C9AE98;--ink-3:#977A66;
+  --brand:#3A140B;--rust:#C1440E;--dust:#E9A06A;
+  --sf:#E58A4E;--sf-wash:#3A1B0E;--sf-ink:#F2AE7E;
+  --et:#4FE0D2;--et-wash:#0E2A27;--et-ink:#7CEDE2;
+  --check:#F5D547;--check-wash:#3A3010;--bad:#FF5A4A;--bad-wash:#3F120C;
+  --focus:#4FE0D2;--crt:#06110F;
+  --display:Michroma,"Chakra Petch",sans-serif;
 }
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --paper:#0E1714;--surface:#14201C;--sunk:#1A2924;--line:#273833;--line-strong:#3A514A;
-  --ink:#E4ECE8;--ink-2:#A7B8B1;--ink-3:#84968F;--brand:#0A4A33;
-  --sf:#7FA8D6;--sf-wash:#172638;--sf-ink:#A9C6E6;
-  --et:#4CC08B;--et-wash:#13301F;--et-ink:#8FDDB6;
-  --check:#E7B04F;--check-wash:#332710;--bad:#F08A7E;--bad-wash:#3A1A16;--focus:#A9C6E6}}
-:root[data-theme="dark"]{
-  --paper:#0E1714;--surface:#14201C;--sunk:#1A2924;--line:#273833;--line-strong:#3A514A;
-  --ink:#E4ECE8;--ink-2:#A7B8B1;--ink-3:#84968F;--brand:#0A4A33;
-  --sf:#7FA8D6;--sf-wash:#172638;--sf-ink:#A9C6E6;
-  --et:#4CC08B;--et-wash:#13301F;--et-ink:#8FDDB6;
-  --check:#E7B04F;--check-wash:#332710;--bad:#F08A7E;--bad-wash:#3A1A16;--focus:#A9C6E6}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html{scroll-behavior:smooth;scroll-padding-top:72px}
-body{margin:0;background:var(--paper);color:var(--ink);font:400 14px/1.5 Archivo,ui-sans-serif,-apple-system,"Segoe UI",sans-serif;font-variant-numeric:tabular-nums;padding-bottom:84px}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 14px/1.5 "Chakra Petch",ui-sans-serif,-apple-system,"Segoe UI",sans-serif;font-variant-numeric:tabular-nums;padding-bottom:84px}
 h2,h3,h4{margin:0;font-weight:700;letter-spacing:-.005em}
 .muted{color:var(--ink-3);font-size:13px}
 :focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 
 /* En-tête : la marque, puis la séquence réelle des trois étapes. */
-.top{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:28px;height:60px;padding:0 24px;background:var(--brand);color:#fff}
+.top{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:28px;height:64px;padding:0 24px;background:linear-gradient(#240C06,#3A140B);color:#fff;box-shadow:0 1px 0 var(--rust),0 2px 0 rgba(233,160,106,.25)}
 .brand{display:flex;align-items:center;gap:14px;color:#fff;text-decoration:none}
 .logo{height:36px;width:auto;filter:brightness(0) invert(1)}
-.product{font-size:19px;font-weight:700;font-stretch:112%;padding-left:14px;border-left:1px solid rgba(255,255,255,.3)}
+.product{font-family:var(--display);font-size:17px;letter-spacing:.06em;text-transform:uppercase;padding-left:14px;border-left:1px solid rgba(233,160,106,.4);line-height:1.1}
+.product small{display:block;font-family:"Chakra Petch",sans-serif;font-size:11.5px;letter-spacing:.02em;text-transform:none;color:var(--dust);margin-top:3px}
 .steps{display:flex;align-items:center;margin-left:auto}
 .step{display:flex;align-items:center;gap:8px;color:#fff;text-decoration:none;font-weight:600;opacity:.5;padding:6px 0}
 .step+.step::before{content:"";width:28px;height:1px;background:rgba(255,255,255,.35);margin:0 12px}
 .step i{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;border:1.5px solid currentColor;font-style:normal;font-size:12px}
 .step.done,.step.active{opacity:1}
-.step.done i{background:#fff;color:var(--brand);border-color:#fff}
+.step.done i{background:var(--dust);color:#240C06;border-color:var(--dust)}
 .step[aria-disabled="true"]{pointer-events:none}
-.link{border:0;background:none;color:#fff;font:inherit;font-weight:600;cursor:pointer;opacity:.85;text-decoration:underline;text-underline-offset:3px}
+.link{border:0;background:none;color:#fff;font:inherit;font-weight:600;cursor:pointer;white-space:nowrap;opacity:.85;text-decoration:underline;text-underline-offset:3px}
 .link:hover{opacity:1}
 
 /* Boutons */
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--brand);border-radius:6px;padding:9px 16px;font:inherit;font-weight:600;cursor:pointer;background:var(--brand);color:#fff;text-decoration:none;white-space:nowrap}
-.btn:hover{background:#0A5A3D}
-.btn.quiet{background:var(--surface);color:var(--ink);border-color:var(--line-strong)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--rust);border-radius:3px;padding:9px 18px;font:inherit;font-weight:600;letter-spacing:.02em;cursor:pointer;background:var(--rust);color:#fff;text-decoration:none;white-space:nowrap}
+.btn:hover{background:#D9561C}
+.btn.quiet{background:transparent;color:var(--ink);border-color:var(--line-strong)}
 .btn.quiet:hover{border-color:var(--ink-3)}
 .btn.small{padding:4px 10px;font-size:13px}
 
 main{max-width:1640px;margin:0 auto;padding:24px 24px 40px}
 
 /* La couture : Tous contrats | traits des opérations | ExtracTerre */
-.seam{display:grid;grid-template-columns:minmax(220px,1fr) minmax(320px,1.5fr) minmax(220px,1fr);align-items:stretch;border:1px solid var(--line);border-radius:8px;background:var(--surface);margin-bottom:28px}
+.seam{display:grid;grid-template-columns:minmax(220px,1fr) minmax(320px,1.5fr) minmax(220px,1fr);align-items:stretch;border:1px solid var(--line-strong);border-radius:4px;background:var(--surface);margin-bottom:28px}
 .drop{position:relative;padding:22px 24px;cursor:pointer;min-width:0}
-.drop.sf{border-right:1px solid var(--line);box-shadow:inset 4px 0 0 var(--sf);border-radius:8px 0 0 8px}
-.drop.et{border-left:1px solid var(--line);box-shadow:inset -4px 0 0 var(--et);border-radius:0 8px 8px 0}
-.drop h2{font-size:21px;font-stretch:108%}
+.drop.sf{border-right:1px solid var(--line);box-shadow:inset 3px 0 0 var(--sf);border-radius:4px 0 0 4px}
+.drop.et{border-left:1px solid var(--line);box-shadow:inset -3px 0 0 var(--et);border-radius:0 4px 4px 0}
+.drop h2{font-family:var(--display);font-size:17px;letter-spacing:.04em;font-weight:400}
+.drop .role{margin:4px 0 0;font-weight:600;font-size:13.5px;color:var(--ink)}
 .drop.sf h2{color:var(--sf-ink)}.drop.et h2{color:var(--et-ink)}
 .drop p{margin:6px 0 0;color:var(--ink-2);font-size:13px;max-width:44ch}
 .drop:hover,.drop.drag{background:var(--sunk)}
@@ -72,27 +64,40 @@ main{max-width:1640px;margin:0 auto;padding:24px 24px 40px}
 .card .x{border:0;background:none;color:var(--ink-3);font-size:18px;cursor:pointer;line-height:1;padding:4px 8px;border-radius:4px}
 .card .x:hover{background:var(--bad-wash);color:var(--bad)}
 
-.stitch{display:flex;flex-direction:column;justify-content:center;gap:12px;padding:22px 28px;min-width:0}
-.next{margin:0;color:var(--ink-2);max-width:52ch;font-size:14px}
+.stitch{position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:center;gap:12px;padding:30px 28px 22px;min-width:0;background:
+  radial-gradient(ellipse at 50% 40%,rgba(79,224,210,.10),transparent 70%),
+  repeating-linear-gradient(90deg,rgba(79,224,210,.06) 0 1px,transparent 1px 32px),
+  repeating-linear-gradient(0deg,rgba(79,224,210,.06) 0 1px,transparent 1px 32px),var(--crt);
+  box-shadow:inset 0 0 40px rgba(0,0,0,.8)}
+/* Lignes de trame cathodiques, au-dessus du contenu, sans capter les clics. */
+.stitch::after{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.22) 0 1px,transparent 1px 3px)}
+.scanner-label{position:absolute;top:10px;left:28px;font-size:11.5px;color:var(--et);opacity:.7;letter-spacing:.04em}
+@media (prefers-reduced-motion:no-preference){
+  .stitch.scan::before{content:"";position:absolute;top:0;bottom:0;width:60px;left:-60px;pointer-events:none;background:linear-gradient(90deg,transparent,rgba(79,224,210,.35),transparent);animation:sweep 1.4s ease-in-out 1 both}
+}
+@keyframes sweep{to{left:100%}}
+.next{margin:0;color:var(--et-ink);max-width:52ch;font-size:14px}
 .match{margin:0;display:grid;grid-template-columns:auto 1fr;column-gap:14px;align-items:baseline}
 .match:empty{display:none}
-.match b{grid-row:span 2;font-size:56px;line-height:.9;font-weight:800;font-stretch:118%;letter-spacing:-.02em;color:var(--ink)}
+.match b{grid-row:span 2;font-family:var(--display);font-weight:400;font-size:50px;line-height:1;color:var(--et);text-shadow:0 0 18px rgba(79,224,210,.55)}
 .match span{font-size:16px;font-weight:600}
-.match small{font-size:12.5px;color:var(--ink-3)}
+.match small{font-size:12.5px;color:var(--ink-2)}
 /* Chaque trait = une opération ExtracTerre. Moitié haute bleue (Tous contrats), moitié basse verte (ExtracTerre). */
-.strip{display:flex;gap:1px;height:44px;align-items:stretch}
+.strip{display:flex;gap:1px;height:48px;align-items:stretch;filter:drop-shadow(0 0 4px rgba(79,224,210,.45))}
 .strip:empty{display:none}
 .t{flex:1 1 0;min-width:1px;max-width:16px;border-radius:1px;cursor:pointer;background:linear-gradient(var(--sf) 0 50%,var(--et) 50% 100%)}
 .t-check{background:linear-gradient(var(--sf) 0 50%,var(--check) 50% 100%)}
-.t-et{background:linear-gradient(transparent 0 50%,var(--et) 50% 100%);box-shadow:inset 0 1px 0 var(--line-strong)}
+.t-et{background:linear-gradient(transparent 0 50%,var(--et) 50% 100%)}
 .t-conflit{background:var(--bad)}
+@media (prefers-reduced-motion:no-preference){.t-conflit,.t-et{animation:stitch .5s cubic-bezier(.2,.7,.2,1) both,blink 1.2s steps(2) .6s 3}}
+@keyframes blink{50%{opacity:.25}}
 .t:hover{opacity:.6}
 @media (prefers-reduced-motion:no-preference){.t{animation:stitch .5s cubic-bezier(.2,.7,.2,1) both;animation-delay:calc(min(var(--k),400) * 2ms)}}
 @keyframes stitch{from{transform:scaleY(0)}to{transform:scaleY(1)}}
-.legend{display:flex;flex-wrap:wrap;gap:4px 18px;font-size:12.5px;color:var(--ink-2)}
+.legend{position:relative;z-index:1;display:flex;flex-wrap:wrap;gap:4px 18px;font-size:12.5px;color:var(--ink-2)}
 .legend i{display:inline-block;width:6px;height:14px;border-radius:1px;margin-right:7px;vertical-align:-2px;background:linear-gradient(var(--sf) 0 50%,var(--et) 50% 100%)}
 .legend i.t-check{background:linear-gradient(var(--sf) 0 50%,var(--check) 50% 100%)}
-.legend i.t-et{background:linear-gradient(var(--line) 0 50%,var(--et) 50% 100%)}
+.legend i.t-et{background:linear-gradient(var(--line-strong) 0 50%,var(--et) 50% 100%)}
 .legend i.t-conflit{background:var(--bad)}
 .busy{display:flex;align-items:center;gap:10px;color:var(--ink);font-weight:600}
 .spin{width:16px;height:16px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--et);animation:spin .8s linear infinite}
@@ -101,10 +106,10 @@ main{max-width:1640px;margin:0 auto;padding:24px 24px 40px}
 
 /* Filtres : chaque compteur est un filtre du tableau. */
 .filters{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}
-.chip{display:inline-flex;align-items:baseline;gap:8px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);border-radius:999px;padding:6px 14px;font:inherit;font-weight:600;cursor:pointer}
+.chip{display:inline-flex;align-items:baseline;gap:8px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);border-radius:3px;padding:6px 14px;font:inherit;font-weight:600;cursor:pointer}
 .chip b{font-weight:700;color:var(--ink-2)}
 .chip:hover{border-color:var(--ink-3)}
-.chip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--surface)}
+.chip[aria-pressed="true"]{background:var(--dust);border-color:var(--dust);color:#240C06}
 .chip[aria-pressed="true"] b{color:inherit}
 .chip.et b{color:var(--et-ink)}.chip.sf b{color:var(--sf-ink)}.chip.check b{color:var(--check)}.chip.bad b{color:var(--bad)}
 .chip[aria-pressed="true"].et b,.chip[aria-pressed="true"].sf b,.chip[aria-pressed="true"].check b,.chip[aria-pressed="true"].bad b{color:inherit}
@@ -114,7 +119,7 @@ main{max-width:1640px;margin:0 auto;padding:24px 24px 40px}
 .tabs{display:flex;gap:22px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none}
 .tab{border:0;background:none;font:inherit;font-weight:600;color:var(--ink-3);padding:8px 0 10px;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap}
 .tab:hover{color:var(--ink)}
-.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--ink)}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--rust)}
 .tab b{font-weight:600;color:var(--ink-3);margin-left:4px}
 .tools{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
 .tools input,.tools select{border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);border-radius:6px;padding:8px 11px;font:inherit}
@@ -128,10 +133,10 @@ main{max-width:1640px;margin:0 auto;padding:24px 24px 40px}
 .pager button:disabled{opacity:.4;cursor:default}
 
 /* Tableaux : en-têtes étroits (libellés Salesforce longs), valeurs ExtracTerre marquées en vert. */
-.scroll{overflow:auto;max-height:66vh;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+.scroll{overflow:auto;max-height:66vh;border:1px solid var(--line-strong);border-radius:3px;background:var(--surface);scrollbar-color:var(--line-strong) var(--surface)}
 .grid{border-collapse:separate;border-spacing:0;font-size:13px;width:max-content;min-width:100%}
 .grid th,.grid td{padding:7px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.grid th{position:sticky;top:0;background:var(--sunk);color:var(--ink-2);font-weight:600;font-stretch:82%;font-size:12.5px;z-index:2;border-bottom-color:var(--line-strong)}
+.grid th{position:sticky;top:0;background:var(--sunk);color:var(--dust);font-weight:600;font-size:12px;letter-spacing:.01em;z-index:2;border-bottom-color:var(--line-strong)}
 .grid td.et{background:var(--et-wash);color:var(--et-ink)}
 .grid tr[tabindex]{cursor:pointer}
 .grid tbody tr:hover td{background-color:var(--sunk)}
@@ -149,8 +154,8 @@ main{max-width:1640px;margin:0 auto;padding:24px 24px 40px}
 .seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:6px;overflow:hidden}
 .seg button{border:0;background:var(--surface);color:var(--ink-2);font:inherit;font-size:12.5px;padding:4px 10px;cursor:pointer}
 .seg button+button{border-left:1px solid var(--line-strong)}
-.seg button[data-v="sf"][aria-pressed="true"]{background:var(--sf);color:#fff}
-.seg button[data-v="et"][aria-pressed="true"]{background:var(--et);color:#fff}
+.seg button[data-v="sf"][aria-pressed="true"]{background:var(--sf);color:#240C06}
+.seg button[data-v="et"][aria-pressed="true"]{background:var(--et);color:#06110F}
 .num{text-align:right}
 
 /* Écarts : la règle par défaut est posée là où elle s'applique. */
@@ -171,11 +176,12 @@ main{max-width:1640px;margin:0 auto;padding:24px 24px 40px}
 .empty{padding:40px;color:var(--ink-2)}
 
 /* Carte */
-#map{height:62vh;border-radius:6px;border:1px solid var(--line)}
-.leaflet-popup-content{font:13px/1.45 Archivo,sans-serif}
+#map{height:62vh;border-radius:3px;border:1px solid var(--line-strong);background:var(--paper)}
+#map .leaflet-tile-pane{filter:grayscale(1) invert(.9) sepia(1) saturate(4) hue-rotate(-35deg) brightness(.8)}
+.leaflet-popup-content{font:13px/1.45 "Chakra Petch",sans-serif}
 
 /* Export : toujours à portée, en bas de l'écran. */
-.exportbar{position:fixed;left:0;right:0;bottom:0;z-index:25;display:flex;align-items:center;gap:12px;padding:12px 24px;background:var(--surface);border-top:1px solid var(--line-strong)}
+.exportbar{position:fixed;left:0;right:0;bottom:0;z-index:25;display:flex;align-items:center;gap:12px;padding:12px 24px;background:#1D0C07;border-top:1px solid var(--rust)}
 .exportbar p{margin:0 auto 0 0;color:var(--ink-2)}
 .exportbar p b{color:var(--ink)}
 .how{position:relative}
@@ -187,7 +193,7 @@ main{max-width:1640px;margin:0 auto;padding:24px 24px 40px}
 .drawer{position:fixed;top:0;right:0;bottom:0;width:min(560px,100vw);background:var(--surface);border-left:1px solid var(--line-strong);z-index:40;display:flex;flex-direction:column}
 .drawer-head{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--line)}
 .kind{font-size:13px;font-weight:600;color:var(--ink-3)}
-.drawer-head h3{font-size:19px;font-stretch:106%}.drawer-head p{margin:2px 0 0;color:var(--ink-2);font-size:13px}
+.drawer-head h3{font-size:19px}.drawer-head p{margin:2px 0 0;color:var(--ink-2);font-size:13px}
 .close{border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);font-size:20px;width:34px;height:34px;border-radius:6px;cursor:pointer}
 .drawer-body{overflow:auto;padding:8px 22px 24px}
 .drawer-body h4{margin:20px 0 8px;font-size:14px;padding-left:10px;border-left:3px solid var(--ink-3)}
@@ -201,12 +207,12 @@ main{max-width:1640px;margin:0 auto;padding:24px 24px 40px}
 .note.bad{background:var(--bad-wash);border-left-color:var(--bad)}
 
 dialog{border:1px solid var(--line-strong);border-radius:8px;max-width:620px;background:var(--surface);color:var(--ink);padding:24px 28px}
-dialog h3{font-size:19px}
+dialog h3{font-family:var(--display);font-weight:400;font-size:16px;letter-spacing:.03em}
 dialog ul{padding-left:18px}
 dialog li{margin-bottom:10px;max-width:72ch}
-dialog::backdrop{background:rgba(6,30,21,.5)}
+dialog::backdrop{background:rgba(10,3,2,.7)}
 #toasts{position:fixed;right:16px;bottom:76px;display:flex;flex-direction:column;gap:8px;z-index:50}
-.toast{background:var(--ink);color:var(--surface);border-radius:6px;padding:10px 14px;max-width:420px;border-left:4px solid var(--ink-3)}
+.toast{background:var(--crt);color:var(--et-ink);border:1px solid var(--line-strong);border-radius:6px;padding:10px 14px;max-width:420px;border-left:4px solid var(--ink-3)}
 .toast.success{border-left-color:var(--et)}.toast.error{border-left-color:var(--bad)}
 
 @media (max-width:1000px){
@@ -215,7 +221,7 @@ dialog::backdrop{background:rgba(6,30,21,.5)}
   .drop.sf{border-radius:8px 0 0 0}.drop.et{border-radius:0 8px 0 0}
 }
 @media (max-width:760px){
-  .top{gap:12px;padding:0 16px}.logo{height:28px}.product{font-size:16px;padding-left:10px}
+  .top{gap:12px;padding:0 16px}.logo{height:28px}.product{font-size:14px;padding-left:10px}.link{font-size:13px}
   .steps{display:none}
   main{padding:16px 16px 32px}
   .seam{grid-template-columns:1fr}
