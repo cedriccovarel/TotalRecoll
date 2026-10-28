@@ -6,102 +6,88 @@
 <title>TotalRecoll</title>
 <link rel="icon" href="assets/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="styles.css?v=3">
+<link rel="stylesheet" href="styles.css?v=4">
 </head>
 <body>
 <header class="top">
-  <div class="brand">
+  <a class="brand" href="#step-sources">
     <img src="assets/prestaterre_logo_green.png" alt="Prestaterre Certifications" class="logo">
-    <div><b>TotalRecoll</b><span>Tous contrats × ExtracTerre → base Observatoire</span></div>
-  </div>
+    <span class="product">TotalRecoll</span>
+  </a>
   <nav class="steps" aria-label="Étapes">
-    <a href="#step-sources" class="step" data-step="1"><i>1</i><span>Sources</span></a>
-    <a href="#step-control" class="step" data-step="2"><i>2</i><span>Contrôle</span></a>
-    <a href="#step-export" class="step" data-step="3"><i>3</i><span>Export</span></a>
+    <a href="#step-sources" class="step" data-step="1"><i>1</i>Sources</a>
+    <a href="#step-control" class="step" data-step="2"><i>2</i>Contrôle</a>
+    <a href="#step-export" class="step" data-step="3"><i>3</i>Export</a>
   </nav>
-  <button class="btn ghost" id="helpBtn" type="button">Aide</button>
+  <button class="link" id="helpBtn" type="button">Comment ça marche</button>
 </header>
 
 <main>
-  <section id="step-sources" class="step-section" aria-labelledby="h-sources">
-    <div class="section-head">
-      <div><span class="eyebrow">Étape 1</span><h2 id="h-sources">Charger les sources</h2>
-      <p>Les fichiers sont lus dans ce navigateur : rien n’est envoyé sur Internet, rien n’est conservé à la fermeture.</p></div>
+  <section id="step-sources" class="seam" aria-label="Sources">
+    <article class="drop sf" id="dropSf" tabindex="0" role="button" aria-describedby="sfHint">
+      <h2>Tous contrats</h2>
+      <p id="sfHint">Export Salesforce .xlsx, feuille OPERATIONS. Glissez le fichier ici ou cliquez pour le choisir.</p>
+      <input id="sfFile" type="file" accept=".xlsx,.xls" hidden>
+      <div class="cards" id="sfCards"></div>
+    </article>
+
+    <div class="stitch" aria-live="polite">
+      <p class="next" id="nextHint">Déposez les deux fichiers. Chaque opération ExtracTerre est rattachée à sa ligne Tous contrats par le numéro de contrat (0000xxxx) ou le code OPE.</p>
+      <div class="busy" id="busy" hidden role="status"><span class="spin" aria-hidden="true"></span><span id="busyText">Lecture…</span></div>
+      <p class="match" id="matchLine"></p>
+      <div class="strip" id="matchBar"></div>
+      <div class="legend" id="matchLegend"></div>
     </div>
-    <div class="sources">
-      <article class="drop" id="dropSf" tabindex="0" role="button" aria-describedby="sfHint">
-        <div class="drop-ico" aria-hidden="true">SF</div>
-        <h3>Tous contrats <small>Salesforce</small></h3>
-        <p id="sfHint">Fichier .xlsx avec « Numéro du contrat » et « Opération: Code interne » (feuille OPERATIONS de préférence). Glissez-le ici ou cliquez.</p>
-        <input id="sfFile" type="file" accept=".xlsx,.xls" hidden>
-        <div class="cards" id="sfCards"></div>
-      </article>
-      <article class="drop" id="dropEt" tabindex="0" role="button" aria-describedby="etHint">
-        <div class="drop-ico et" aria-hidden="true">ET</div>
-        <h3>ExtracTerre <small>une ou plusieurs sources</small></h3>
-        <p id="etHint">Session .json (« Exporter la session ») ou export Excel Multi-projets (feuille « Données par bâtiment »). Sur une même opération, le dernier fichier chargé l’emporte.</p>
-        <input id="etFile" type="file" accept=".json,.xlsx" multiple hidden>
-        <div class="cards" id="etCards"></div>
-      </article>
-    </div>
-    <fieldset class="rule">
-      <legend>Quand une cellule est déjà remplie dans Tous contrats avec une autre valeur</legend>
-      <label><input type="radio" name="default" value="et" checked> ExtracTerre l’emporte <small>(données analysées dans les documents)</small></label>
-      <label><input type="radio" name="default" value="sf"> Tous contrats l’emporte</label>
-      <span class="muted">Chaque écart reste modifiable un par un à l’étape 2.</span>
-    </fieldset>
-    <p class="next muted" id="nextHint">Les étapes Contrôle et Export s’affichent dès que les deux sources sont chargées.</p>
-    <div class="busy" id="busy" hidden role="status"><span class="spin" aria-hidden="true"></span><span id="busyText">Lecture…</span></div>
+
+    <article class="drop et" id="dropEt" tabindex="0" role="button" aria-describedby="etHint">
+      <h2>ExtracTerre</h2>
+      <p id="etHint">Session .json ou export Multi-projets .xlsx, un ou plusieurs fichiers. Sur une même opération, le dernier chargé l’emporte.</p>
+      <input id="etFile" type="file" accept=".json,.xlsx" multiple hidden>
+      <div class="cards" id="etCards"></div>
+    </article>
   </section>
 
-  <section id="step-control" class="step-section" aria-labelledby="h-control" hidden>
-    <div class="section-head">
-      <div><span class="eyebrow">Étape 2</span><h2 id="h-control">Contrôler le recollement</h2>
-      <p id="matchLine"></p></div>
-    </div>
-    <div class="matchbar" id="matchBar" aria-hidden="true"></div>
-    <div class="legend" id="matchLegend"></div>
-    <div class="kpis" id="kpis"></div>
+  <section id="step-control" aria-label="Contrôle" hidden>
+    <div class="filters" id="kpis" role="group" aria-label="Lignes affichées"></div>
 
-    <div class="tabs" role="tablist" aria-label="Vues">
-      <button role="tab" class="tab" data-tab="table" aria-selected="true">Tableau</button>
-      <button role="tab" class="tab" data-tab="issues" aria-selected="false">À contrôler <b id="nIssues"></b></button>
-      <button role="tab" class="tab" data-tab="ecarts" aria-selected="false">Écarts <b id="nEcarts"></b></button>
-      <button role="tab" class="tab" data-tab="map" aria-selected="false">Carte <b id="nMap"></b></button>
-      <button role="tab" class="tab" data-tab="columns" aria-selected="false">Colonnes</button>
+    <div class="bar">
+      <div class="tabs" role="tablist" aria-label="Vues">
+        <button role="tab" class="tab" data-tab="table" aria-selected="true">Tableau</button>
+        <button role="tab" class="tab" data-tab="issues" aria-selected="false">À contrôler <b id="nIssues"></b></button>
+        <button role="tab" class="tab" data-tab="ecarts" aria-selected="false">Écarts <b id="nEcarts"></b></button>
+        <button role="tab" class="tab" data-tab="map" aria-selected="false">Carte <b id="nMap"></b></button>
+        <button role="tab" class="tab" data-tab="columns" aria-selected="false">Colonnes</button>
+      </div>
     </div>
 
     <div class="panel" data-panel="table">
       <div class="tools">
-        <input id="search" type="search" placeholder="Rechercher : contrat, OPE, opération, maître d’ouvrage, ville…" aria-label="Rechercher">
-        <select id="filter" aria-label="Lignes">
-          <option value="recolle" selected>Recollées</option>
-          <option value="all">Toutes les lignes</option>
-          <option value="check">À contrôler</option>
-          <option value="sf">Salesforce seul</option>
-          <option value="et">ExtracTerre seul</option>
-          <option value="conflit">Conflits</option>
-        </select>
-        <select id="preset" aria-label="Colonnes">
+        <input id="search" type="search" placeholder="Rechercher un contrat, une OPE, une opération, un maître d’ouvrage, une ville" aria-label="Rechercher">
+        <select id="preset" aria-label="Colonnes affichées">
           <option value="key">Colonnes essentielles</option>
           <option value="et">Colonnes remplies par ExtracTerre</option>
           <option value="all">Toutes les colonnes</option>
         </select>
       </div>
-      <div class="table-meta"><span id="shown"></span><span class="chip-et">cellule issue d’ExtracTerre</span><span class="pager" id="pager"></span></div>
+      <div class="table-meta"><span id="shown"></span><span class="key"><i class="sw sw-et"></i>Valeur venue d’ExtracTerre</span><span class="pager" id="pager"></span></div>
       <div class="scroll"><table id="table" class="grid"></table></div>
     </div>
 
     <div class="panel" data-panel="issues" hidden><div id="issues"></div></div>
 
     <div class="panel" data-panel="ecarts" hidden>
+      <fieldset class="rule">
+        <legend>Quand Tous contrats a déjà une autre valeur, retenir par défaut</legend>
+        <label class="opt et"><input type="radio" name="default" value="et" checked> ExtracTerre <small>analysé dans les documents</small></label>
+        <label class="opt sf"><input type="radio" name="default" value="sf"> Tous contrats</label>
+      </fieldset>
       <div class="tools">
         <select id="ecartCol" aria-label="Colonne"><option value="">Toutes les colonnes</option></select>
-        <button class="btn light" id="allEt" type="button">Tout ExtracTerre</button>
-        <button class="btn light" id="allSf" type="button">Tout Tous contrats</button>
-        <button class="btn ghost-dark" id="resetDec" type="button">Revenir au choix par défaut</button>
+        <button class="btn quiet" id="allEt" type="button">Tout retenir d’ExtracTerre</button>
+        <button class="btn quiet" id="allSf" type="button">Tout retenir de Tous contrats</button>
+        <button class="btn quiet" id="resetDec" type="button">Revenir au choix par défaut</button>
       </div>
       <div class="scroll"><table id="ecarts" class="grid"></table></div>
     </div>
@@ -112,53 +98,45 @@
     </div>
 
     <div class="panel" data-panel="columns" hidden>
-      <p class="muted">Correspondance entre les libellés ExtracTerre et les colonnes du tableau Tous contrats. Les colonnes « ajoutées » n’existent pas dans Tous contrats : elles sont placées à la fin, avant « Recollement ».</p>
+      <p class="muted">Où chaque libellé ExtracTerre est écrit dans le tableau Tous contrats. Les colonnes « ajoutées » n’existent pas dans Tous contrats : elles sont placées à la fin, avant « Recollement ».</p>
       <div class="scroll"><table id="columns" class="grid"></table></div>
-    </div>
-  </section>
-
-  <section id="step-export" class="step-section" aria-labelledby="h-export" hidden>
-    <div class="section-head">
-      <div><span class="eyebrow">Étape 3</span><h2 id="h-export">Exporter vers Google Sheets</h2>
-      <p id="exportLine"></p></div>
-    </div>
-    <div class="exports">
-      <article class="export">
-        <h3>Copier-coller dans Google Sheets</h3>
-        <ol><li>Cliquez sur « Copier ».</li><li>Dans la feuille OPERATIONS de Google Sheets, sélectionnez la cellule A1.</li><li>Collez (⌘V / Ctrl+V).</li></ol>
-        <p class="muted">Les numéros de contrat gardent leurs zéros (00001234).</p>
-        <button class="btn" id="copyBtn" type="button">Copier le tableau</button>
-      </article>
-      <article class="export">
-        <h3>Fichier Excel</h3>
-        <ol><li>Téléchargez le fichier.</li><li>Google Sheets → Fichier → Importer → Importer un fichier.</li><li>Choisissez « Remplacer la feuille de calcul » ou « Remplacer la feuille actuelle ».</li></ol>
-        <p class="muted">Onglets : OPERATIONS, Écarts, À contrôler.</p>
-        <button class="btn" id="xlsxBtn" type="button">Télécharger le .xlsx</button>
-      </article>
     </div>
   </section>
 </main>
 
+<section id="step-export" class="exportbar" aria-label="Export" hidden>
+  <p id="exportLine"></p>
+  <details class="how">
+    <summary>Importer dans Google Sheets</summary>
+    <div>
+      <p><b>Copier</b> : dans la feuille OPERATIONS, sélectionnez A1 puis collez (⌘V / Ctrl+V). Les numéros de contrat gardent leurs zéros.</p>
+      <p><b>Fichier .xlsx</b> : Fichier › Importer › Importer un fichier, puis « Remplacer la feuille actuelle ». Onglets : OPERATIONS, Écarts, À contrôler.</p>
+    </div>
+  </details>
+  <button class="btn" id="copyBtn" type="button">Copier pour Google Sheets</button>
+  <button class="btn quiet" id="xlsxBtn" type="button">Télécharger le .xlsx</button>
+</section>
+
 <aside class="drawer" id="drawer" hidden aria-labelledby="drawerTitle">
-  <div class="drawer-head"><div><span class="eyebrow" id="drawerKind"></span><h3 id="drawerTitle"></h3><p id="drawerSub"></p></div><button class="close" id="drawerClose" type="button" aria-label="Fermer">×</button></div>
+  <div class="drawer-head"><div><span class="kind" id="drawerKind"></span><h3 id="drawerTitle"></h3><p id="drawerSub"></p></div><button class="close" id="drawerClose" type="button" aria-label="Fermer">×</button></div>
   <div class="drawer-body" id="drawerBody"></div>
 </aside>
 
 <dialog id="help" aria-labelledby="helpTitle">
   <h3 id="helpTitle">Comment TotalRecoll recolle</h3>
   <ul>
-    <li><b>Clés :</b> numéro de contrat (format 0000xxxx) et/ou numéro d’opération (OPE-XXXXXX). Si les deux désignent des opérations Salesforce différentes, la ligne est mise en <b>conflit</b> et rien n’est fusionné.</li>
-    <li><b>1 ligne = 1 bâtiment :</b> chaque bâtiment ExtracTerre devient une ligne ; les colonnes Salesforce (statut, maître d’ouvrage, dates, totaux…) sont recopiées sur chaque ligne. Si Tous contrats a déjà autant de lignes que de bâtiments, elles sont associées dans l’ordre ; sinon la ligne est « à vérifier ».</li>
-    <li><b>Colonnes :</b> les données techniques et la localisation (adresse, latitude, longitude) viennent d’ExtracTerre ; les colonnes administratives restent celles de Salesforce.</li>
-    <li><b>Écarts :</b> quand Tous contrats contient déjà une autre valeur, le choix par défaut s’applique ; chaque écart peut être tranché un par un.</li>
-    <li><b>Confidentialité :</b> tout est calculé dans le navigateur. Seule la carte charge des fonds de plan IGN.</li>
+    <li><b>Clés.</b> Numéro de contrat (0000xxxx) et code d’opération (OPE-XXXXXX). Si les deux désignent des opérations Salesforce différentes, la ligne est en conflit et rien n’est fusionné.</li>
+    <li><b>Une ligne par bâtiment.</b> Chaque bâtiment ExtracTerre devient une ligne ; les colonnes Salesforce (statut, maître d’ouvrage, dates, totaux) sont recopiées sur chacune. Si Tous contrats a déjà autant de lignes que de bâtiments, elles sont associées dans l’ordre ; sinon la ligne est à vérifier.</li>
+    <li><b>Colonnes.</b> Les données techniques et la localisation viennent d’ExtracTerre ; les colonnes administratives restent celles de Salesforce.</li>
+    <li><b>Écarts.</b> Quand Tous contrats contient déjà une autre valeur, le choix par défaut s’applique ; chaque écart peut être tranché un par un.</li>
+    <li><b>Confidentialité.</b> Tout est calculé dans ce navigateur. Seule la carte charge des fonds de plan IGN.</li>
   </ul>
-  <form method="dialog"><button class="btn">Compris</button></form>
+  <form method="dialog"><button class="btn">Fermer</button></form>
 </dialog>
 
 <div id="toasts" aria-live="polite"></div>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script type="module" src="app.js?v=3"></script>
+<script type="module" src="app.js?v=4"></script>
 </body>
 </html>
