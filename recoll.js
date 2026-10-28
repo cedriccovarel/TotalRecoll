@@ -1,5 +1,5 @@
 // Recollement Salesforce (tableau « Tous contrats », 1 ligne = 1 bâtiment) × ExtracTerre (données techniques par bâtiment).
-import {ET_FIELDS} from './fields.js';
+import {ET_FIELDS} from './fields.js?v=3';
 
 export const CONTRACT_COL='Numéro du contrat', OPE_COL='Opération: Code interne';
 export const STATUS_COL='Recollement', BUILDING_COL='Bâtiment';

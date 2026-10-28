@@ -1,4 +1,4 @@
-import {recoll,opsFromSession,opsFromBuildingRows,CONTRACT_COL,OPE_COL,STATUS_COL,BUILDING_COL,KINDS,TECH_LABELS,targetColumn,empty} from './recoll.js';
+import {recoll,opsFromSession,opsFromBuildingRows,CONTRACT_COL,OPE_COL,STATUS_COL,BUILDING_COL,KINDS,TECH_LABELS,targetColumn,empty} from './recoll.js?v=3';
 
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -225,12 +225,15 @@ function setTab(tab){
 }
 function decide(key,v){ state.decisions[key]=v; saveDecisions(); const open=$('drawer').hidden?null:+$('drawer').dataset.row; run(); if(open!=null) openRow(open); }
 function setupDrop(zone,input,handler){
-  zone.addEventListener('click',e=>{ if(!e.target.closest('button')) input.click(); });
+  // Le clic relancé sur le champ caché remonterait jusqu'ici : on l'ignore pour ne pas rouvrir le sélecteur.
+  input.addEventListener('click',e=>e.stopPropagation());
+  zone.addEventListener('click',e=>{ if(e.target!==input&&!e.target.closest('button')) input.click(); });
   zone.addEventListener('keydown',e=>{ if((e.key==='Enter'||e.key===' ')&&e.target===zone){ e.preventDefault(); input.click(); } });
   ['dragenter','dragover'].forEach(t=>zone.addEventListener(t,e=>{ e.preventDefault(); zone.classList.add('drag'); }));
   ['dragleave','drop'].forEach(t=>zone.addEventListener(t,()=>zone.classList.remove('drag')));
   zone.addEventListener('drop',e=>{ e.preventDefault(); handler([...e.dataTransfer.files]); });
-  input.addEventListener('change',()=>{ handler([...input.files]); input.value=''; });
+  // Le champ n'est vidé qu'après lecture : certains navigateurs invalident le fichier dès qu'on le vide.
+  input.addEventListener('change',async()=>{ await handler([...input.files]); input.value=''; });
 }
 setupDrop($('dropSf'),$('sfFile'),files=>handleSf(files[0]));
 setupDrop($('dropEt'),$('etFile'),files=>handleEt(files));
