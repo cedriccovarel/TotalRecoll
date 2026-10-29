@@ -21,6 +21,7 @@ Colonnes **ANRU** (Oui / Non) et **Quartier ANRU** ajoutées avant « Recollemen
 
 - Quartiers : les 480 quartiers du NPNRU, 216 d’intérêt national (arrêté du 29 avril 2015) et 264 d’intérêt régional (arrêté du 15 janvier 2019), liste ANCT / ANRU publiée sur data.gouv.fr (COG 2022), avec les périmètres des quartiers prioritaires 2015 (ANCT, data.gouv.fr). Licence Ouverte 2.0. Fichier `data/npnru.json` (contours simplifiés à environ 2 m).
 - Bâtiment géolocalisé par ExtracTerre (Latitude / Longitude) : Oui s’il est dans un périmètre ou à 10 m au plus de son bord (distance indiquée dans « Quartier ANRU »), Non sinon.
-- Carte : quartiers d’intérêt national en jaune, d’intérêt régional en blanc pointillé ; chaque bâtiment prend la couleur de son quartier.
+- Carte (fond IGN sans filtre) : quartiers d’intérêt national en rouille, d’intérêt régional en bleu pointillé ; chaque bâtiment prend la couleur de son quartier.
+- « Exporter en CSV » : les bâtiments affichés (mentions cochées), toutes colonnes, séparateur « ; », UTF-8 avec BOM (Excel).
 - Sans coordonnées : Non si la commune (code postal + ville) n’a aucun quartier NPNRU ; vide (« à vérifier ») si elle en a un.
 - Périmètre strict : la bande de 300 m autour des quartiers n’est pas prise en compte.

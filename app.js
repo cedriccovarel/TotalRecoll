@@ -194,26 +194,36 @@ function anruRows(){
   if(a<0) return [];
   return r.rows.map((row,i)=>({i,lat:Number(row[la]),lon:Number(row[lo]),mentions:mentionsOf(mc<0?'':row[mc])})).filter(p=>r.rows[p.i][a]==='Oui');
 }
+const anruShown=(all=anruRows())=>all.filter(p=>p.mentions.some(m=>!state.mentionsOff.has(m)));
+// Export des bâtiments affichés sur la carte ANRU (mentions cochées), toutes colonnes ; « ; » et BOM pour Excel.
+function exportAnruCsv(){
+  const r=state.result, pts=anruShown(); if(!pts.length){ toast('Aucune opération à exporter : cochez au moins une mention.','error'); return; }
+  const cell=v=>{ const s=v==null?'':typeof v==='number'?String(v).replace('.',','):String(v); return /[;"\n\r]/.test(s)?`"${s.replace(/"/g,'""')}"`:s; };
+  const mc=r.header.indexOf(MENTIONS_COL), val=(row,j)=>j===mc&&row[j]!=null?mentionsOf(row[j]).filter(m=>m!==NO_MENTION).join(' / '):row[j];
+  const csv='\ufeff'+[r.header,...pts.map(p=>r.rows[p.i])].map((row,k)=>r.header.map((_,j)=>cell(k?val(row,j):row[j])).join(';')).join('\r\n');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})); a.download=`TotalRecoll_ANRU_${new Date().toISOString().slice(0,10)}.csv`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  toast(`${pts.length} bâtiment(s) exporté(s), ${new Set(pts.map(p=>r.meta[p.i].group||p.i)).size} opération(s).`,'success');
+}
 function renderAnru(){
   const r=state.result, all=anruRows(), qi=r.header.indexOf(ANRU_QP_COL), ai=r.header.indexOf(ANRU_COL);
   if(!state.anru){ $('anruInfo').textContent='Quartiers ANRU en cours de chargement…'; return; }
   const counts=new Map(); all.forEach(p=>p.mentions.forEach(m=>counts.set(m,(counts.get(m)||0)+1)));
   const list=[...counts].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'fr'));
   $('mentions').innerHTML=list.length?list.map(([m,n])=>`<label><input type="checkbox" data-mention="${esc(m)}" ${state.mentionsOff.has(m)?'':'checked'}><span>${esc(m)}</span><b>${n}</b></label>`).join(''):'<p class="muted">Aucun bâtiment en quartier ANRU.</p>';
-  const pts=all.filter(p=>p.mentions.some(m=>!state.mentionsOff.has(m)));
+  const pts=anruShown(all);
   const ops=new Set(pts.map(p=>r.meta[p.i].group||p.i)).size, unsure=r.rows.filter(row=>row[ai]===''&&row[qi]).length, edge=all.filter(p=>/du périmètre$/.test(r.rows[p.i][qi]||'')).length;
-  $('anruInfo').innerHTML=`${pts.length} bâtiment(s) en quartier ANRU affiché(s), ${ops} opération(s)${pts.length<all.length?` sur ${all.length} bâtiment(s)`:''}${edge?`, dont ${edge} à 10 m au plus d’un périmètre`:''}.${unsure?` ${unsure} ligne(s) non géolocalisée(s) dans une commune qui a un quartier NPNRU : colonne ANRU laissée vide, à vérifier.`:''}<span class="anru-legend"><span><i style="border:2px solid #F5D547;background:rgba(245,213,71,.2)"></i>Quartier d’intérêt national</span><span><i style="border:2px dashed #F4E6D8"></i>Quartier d’intérêt régional</span><span><i style="background:#F5D547;border-radius:50%"></i><i style="background:#F4E6D8;border-radius:50%"></i>Bâtiment (couleur de son quartier)</span></span>`;
+  $('anruInfo').innerHTML=`${pts.length} bâtiment(s) en quartier ANRU affiché(s), ${ops} opération(s)${pts.length<all.length?` sur ${all.length} bâtiment(s)`:''}${edge?`, dont ${edge} à 10 m au plus d’un périmètre`:''}.${unsure?` ${unsure} ligne(s) non géolocalisée(s) dans une commune qui a un quartier NPNRU : colonne ANRU laissée vide, à vérifier.`:''}<span class="anru-legend"><span><i style="border:2px solid #C1440E;background:rgba(193,68,14,.2)"></i>Quartier d’intérêt national</span><span><i style="border:2px dashed #2563A8"></i>Quartier d’intérêt régional</span><span><i style="background:#C1440E;border-radius:50%"></i><i style="background:#2563A8;border-radius:50%"></i>Bâtiment (couleur de son quartier)</span></span>`;
   if(typeof L==='undefined'){ $('anruInfo').append(' (fond de carte indisponible hors connexion)'); return; }
   if(!state.anruMap){
     state.anruMap=L.map('anruMap',{scrollWheelZoom:true,preferCanvas:true}).setView([46.6,2.4],6);
     L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/png&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',{maxZoom:19,attribution:'© IGN — Géoplateforme ; quartiers NPNRU : ANCT / ANRU'}).addTo(state.anruMap);
-    L.featureGroup(state.anru.quartiers.map(q=>L.polygon(q.rings,q.cat==='national'?{color:'#F5D547',weight:2,fillOpacity:.2}:{color:'#F4E6D8',weight:2,dashArray:'5 4',fillOpacity:.12}).bindPopup(`<b>${esc(q.nom)}</b><br>${esc(q.qp)}, intérêt ${esc(q.cat)}<br>${esc(q.communes.map(c=>c[1]).join(', '))}`))).addTo(state.anruMap);
+    L.featureGroup(state.anru.quartiers.map(q=>L.polygon(q.rings,q.cat==='national'?{color:'#C1440E',weight:2,fillOpacity:.2}:{color:'#2563A8',weight:2,dashArray:'5 4',fillOpacity:.12}).bindPopup(`<b>${esc(q.nom)}</b><br>${esc(q.qp)}, intérêt ${esc(q.cat)}<br>${esc(q.communes.map(c=>c[1]).join(', '))}`))).addTo(state.anruMap);
   }
   setTimeout(()=>state.anruMap.invalidateSize(),0);
   state.anruLayer?.remove();
   state.anruLayer=L.featureGroup(pts.map(p=>{ const x=rowLabel(p.i);
     const nat=/intérêt national/.test(r.rows[p.i][qi]||'');
-    return L.circleMarker([p.lat,p.lon],{radius:7,color:'#1A0B08',weight:2,fillColor:nat?'#F5D547':'#F4E6D8',fillOpacity:.95}).bindPopup(`<b>${esc(x.title)}</b><br>${esc(x.sub)}<br>${esc(r.rows[p.i][qi])}<br>${esc(p.mentions.join(', '))}<br><button class="btn small" data-open="${p.i}" type="button">Détail</button>`); })).addTo(state.anruMap);
+    return L.circleMarker([p.lat,p.lon],{radius:7,color:'#1A0B08',weight:2,fillColor:nat?'#C1440E':'#2563A8',fillOpacity:.95}).bindPopup(`<b>${esc(x.title)}</b><br>${esc(x.sub)}<br>${esc(r.rows[p.i][qi])}<br>${esc(p.mentions.join(', '))}<br><button class="btn small" data-open="${p.i}" type="button">Détail</button>`); })).addTo(state.anruMap);
   if(pts.length) state.anruMap.fitBounds(state.anruLayer.getBounds().pad(.2),{maxZoom:15});
 }
 
@@ -306,6 +316,7 @@ $('xlsxBtn').addEventListener('click',exportXlsx);
 $('copyBtn').addEventListener('click',()=>copyForSheets().catch(e=>toast('Copie impossible : '+e.message,'error')));
 $('helpBtn').addEventListener('click',()=>$('help').showModal());
 $('mentions').addEventListener('change',e=>{ const m=e.target.dataset.mention; if(m==null) return; e.target.checked?state.mentionsOff.delete(m):state.mentionsOff.add(m); renderAnru(); });
+$('anruCsv').addEventListener('click',exportAnruCsv);
 $('mentionsAll').addEventListener('click',()=>{ state.mentionsOff.clear(); renderAnru(); });
 $('mentionsNone').addEventListener('click',()=>{ anruRows().forEach(p=>p.mentions.forEach(m=>state.mentionsOff.add(m))); renderAnru(); });
 fetch('data/npnru.json').then(r=>r.ok?r.json():Promise.reject(new Error(`HTTP ${r.status}`))).then(d=>{ state.anru=anruIndex(d); if(state.sf&&state.et.length) run(); })
