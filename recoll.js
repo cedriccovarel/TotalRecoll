@@ -66,7 +66,7 @@ export const ecartKey=e=>`${e.contrat||e.ope}|${e.batiment}|${e.colonne}`;
 
 // sf = {header:[], rows:[[]]} ; etOps = [etOperation] (la dernière source chargée l'emporte sur une même opération).
 // keepSalesforce : choix par défaut en cas d'écart ; decisions[ecartKey] = 'sf' | 'et' le remplace écart par écart.
-export function recoll(sf,etOps,{keepSalesforce=false,decisions={}}={}){
+export function recoll(sf,etOps,{keepSalesforce=false,decisions={},anru=null}={}){
   const header=[...sf.header];
   const ci=header.indexOf(CONTRACT_COL), oi=header.indexOf(OPE_COL);
   if(ci<0||oi<0) throw new Error(`Colonnes « ${CONTRACT_COL} » et « ${OPE_COL} » introuvables dans le tableau Tous contrats.`);
@@ -97,7 +97,7 @@ export function recoll(sf,etOps,{keepSalesforce=false,decisions={}}={}){
   const used=new Set(etOps.flatMap(op=>op.buildings.flatMap(Object.keys)));
   const extra=TECH_LABELS.filter(l=>used.has(l)&&!header.includes(targetColumn(l))&&l!==BUILDING_COL);
   const sfWidth=header.length;
-  header.push(BUILDING_COL,...extra,STATUS_COL);
+  header.push(BUILDING_COL,...extra,...(anru?[ANRU_COL,ANRU_QP_COL]:[]),STATUS_COL);
   const col=Object.fromEntries(header.map((h,i)=>[h,i]));
   const techCols=[...new Set(TECH_LABELS.map(targetColumn).filter(h=>h in col))];
   const rows=[], meta=[], ecarts=[];
@@ -147,6 +147,7 @@ export function recoll(sf,etOps,{keepSalesforce=false,decisions={}}={}){
   }
   // Format 0000xxxx et OPE-XXXXXX partout.
   rows.forEach(r=>{ if(!empty(r[ci])) r[ci]=normContract(r[ci])||r[ci]; if(!empty(r[oi])) r[oi]=normOpe(r[oi])||r[oi]; });
+  if(anru){ const h=n=>col[n]; rows.forEach(r=>{ const x=anruOf(anru,{lat:r[h('Latitude')],lon:r[h('Longitude')],cp:r[h('Code postal')],ville:r[h('Ville')]}); r[col[ANRU_COL]]=x.anru; r[col[ANRU_QP_COL]]=x.quartier; }); }
   stats.lignes=rows.length; stats.ecarts=ecarts.length;
   return {header,rows,meta,ecarts,stats,sfWidth,extra};
 }
@@ -169,4 +170,38 @@ export function opsFromBuildingRows(rows,source){
     (groups.get(key)||groups.set(key,[]).get(key)).push(r);
   });
   return [...groups.values()].map(b=>etOperation(b,[],`${source} › ${b[0]['Nom opération']||b[0]['Projet']||'sans titre'}`));
+}
+
+// ANRU (NPNRU) : 480 quartiers (intérêt national, arrêté du 29/04/2015 ; intérêt régional, arrêté du 15/01/2019), périmètres QP 2015.
+// Bâtiment géolocalisé : Oui s'il est dans un périmètre ou à 10 m au plus de son bord, sinon Non. Sans coordonnées : Non si sa commune n'a aucun quartier
+// NPNRU ; vide (à vérifier) si elle en a un. shortcut: périmètre strict, sans la bande de 300 m autour du quartier.
+export const ANRU_COL='ANRU', ANRU_QP_COL='Quartier ANRU';
+const normCity=v=>String(v??'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/\bcedex\b.*$/,'').replace(/[-'’]/g,' ')
+  .replace(/\bste?\b/g,m=>m==='st'?'saint':'sainte').replace(/\s+\d+\s*(?:er|e|eme)?(?:\s+arrondissement)?\s*$/,'').replace(/\s+/g,' ').trim();
+const deptOf=(cp,insee)=>{ const s=String(insee||cp||'').trim(); if(/^97/.test(s)) return s.slice(0,3); if(/^(?:2A|2B|20)/i.test(s)) return '20'; return s.slice(0,2); };
+export function anruIndex(data){
+  const qs=(data?.quartiers||[]).map(q=>{ let s=90,w=180,n=-90,e=-180; for(const r of q.rings) for(const [la,lo] of r){ if(la<s)s=la; if(la>n)n=la; if(lo<w)w=lo; if(lo>e)e=lo; } return {...q,bbox:[s,w,n,e]}; });
+  const cities=new Set(qs.flatMap(q=>q.communes.map(([insee,lib])=>deptOf('',insee)+'|'+normCity(lib))));
+  return {quartiers:qs,cities};
+}
+// Règle pair-impair sur tous les anneaux : gère les trous et les quartiers en plusieurs parties.
+const inRings=(rings,la,lo)=>{ let inside=false; for(const r of rings) for(let i=0,j=r.length-1;i<r.length;j=i++){ const [ai,oi]=r[i],[aj,oj]=r[j]; if((ai>la)!==(aj>la)&&lo<(oj-oi)*(la-ai)/(aj-ai)+oi) inside=!inside; } return inside; };
+export function anruAt(index,lat,lon){
+  return index.quartiers.find(q=>lat>=q.bbox[0]&&lat<=q.bbox[2]&&lon>=q.bbox[1]&&lon<=q.bbox[3]&&inRings(q.rings,lat,lon))||null;
+}
+// Distance (m) du point au bord le plus proche d'un quartier, pour les quartiers à moins de ~60 m (sinon null).
+export const ANRU_EDGE_M=10;
+function nearEdge(index,la,lo){
+  const c=Math.cos(la*Math.PI/180), X=x=>x*c*111320, Y=y=>y*110540, px=X(lo), py=Y(la), pad=.0006; let best=null;
+  for(const q of index.quartiers){ if(la<q.bbox[0]-pad||la>q.bbox[2]+pad||lo<q.bbox[1]-pad/c||lo>q.bbox[3]+pad/c) continue;
+    for(const r of q.rings) for(let i=1;i<r.length;i++){ const ax=X(r[i-1][1]),ay=Y(r[i-1][0]),dx=X(r[i][1])-ax,dy=Y(r[i][0])-ay,t=Math.max(0,Math.min(1,((px-ax)*dx+(py-ay)*dy)/((dx*dx+dy*dy)||1))),d=Math.hypot(px-ax-t*dx,py-ay-t*dy); if(!best||d<best.d) best={d,q}; } }
+  return best;
+}
+export function anruOf(index,{lat,lon,cp,ville}){
+  const la=num(lat), lo=num(lon);
+  if(la!==null&&lo!==null&&la!==0){ const q=anruAt(index,la,lo); if(q) return {anru:'Oui',quartier:`${q.nom} (${q.qp}, intérêt ${q.cat})`,q};
+    // Point adresse à 10 m au plus du périmètre (rue en limite de quartier) : intégré, distance indiquée.
+    const e=nearEdge(index,la,lo); return e&&e.d<=ANRU_EDGE_M?{anru:'Oui',quartier:`${e.q.nom} (${e.q.qp}, intérêt ${e.q.cat}), à ${Math.round(e.d)} m du périmètre`,q:e.q}:{anru:'Non',quartier:''}; }
+  const c=normCity(ville); if(!c||!String(cp??'').trim()) return {anru:'',quartier:''};
+  return index.cities.has(deptOf(cp)+'|'+c)?{anru:'',quartier:'Commune avec quartier NPNRU : bâtiment non géolocalisé'}:{anru:'Non',quartier:''};
 }

@@ -14,3 +14,13 @@ Recolle le tableau « Tous contrats » (Salesforce) avec les données techniques
 DH (ExtracTerre ≥ 2.11) : « DH projet » reçoit le plus défavorable de DH ZT / DH ZNT ; un DH sans type de zone (exports plus anciens) est reporté en DH ZNT, ou en DH ZT si le bâtiment n’a que des logements traversants. Les colonnes DH ZT, DH ZNT, ITE, ITI, Brasseur d’air et Climatisation active sont ajoutées en fin de tableau quand OPERATIONS ne les a pas.
 
 Tests : `node test_recoll.mjs` (données fictives).
+
+## ANRU (NPNRU)
+
+Colonnes **ANRU** (Oui / Non) et **Quartier ANRU** ajoutées avant « Recollement », et onglet **ANRU** : carte des bâtiments situés dans un quartier du NPNRU, filtrée par les mentions de l’opération (« Opération: Mentions », cases à cocher).
+
+- Quartiers : les 480 quartiers du NPNRU, 216 d’intérêt national (arrêté du 29 avril 2015) et 264 d’intérêt régional (arrêté du 15 janvier 2019), liste ANCT / ANRU publiée sur data.gouv.fr (COG 2022), avec les périmètres des quartiers prioritaires 2015 (ANCT, data.gouv.fr). Licence Ouverte 2.0. Fichier `data/npnru.json` (contours simplifiés à environ 2 m).
+- Bâtiment géolocalisé par ExtracTerre (Latitude / Longitude) : Oui s’il est dans un périmètre ou à 10 m au plus de son bord (distance indiquée dans « Quartier ANRU »), Non sinon.
+- Carte : quartiers d’intérêt national en jaune, d’intérêt régional en blanc pointillé ; chaque bâtiment prend la couleur de son quartier.
+- Sans coordonnées : Non si la commune (code postal + ville) n’a aucun quartier NPNRU ; vide (« à vérifier ») si elle en a un.
+- Périmètre strict : la bande de 300 m autour des quartiers n’est pas prise en compte.

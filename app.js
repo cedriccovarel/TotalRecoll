@@ -1,11 +1,11 @@
-import {recoll,opsFromSession,opsFromBuildingRows,CONTRACT_COL,OPE_COL,STATUS_COL,BUILDING_COL,KINDS,TECH_LABELS,targetColumn,empty} from './recoll.js?v=4';
+import {recoll,opsFromSession,opsFromBuildingRows,CONTRACT_COL,OPE_COL,STATUS_COL,BUILDING_COL,KINDS,TECH_LABELS,targetColumn,empty,anruIndex,ANRU_COL,ANRU_QP_COL} from './recoll.js?v=5';
 
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const fmt=v=>v==null?'':typeof v==='number'?v.toLocaleString('fr-FR',{maximumFractionDigits:6}):String(v);
 const PAGE=100;
-const KEY_COLS=[CONTRACT_COL,OPE_COL,"Nom de l'opération",'Nom de la société: Nom de la société','Référentiel',BUILDING_COL,'Total logements','Nombre de logements','Ville','Latitude','Longitude','Cep projet','Bbio projet','DH projet','IC construction'];
-const state={filter:'recolle',sf:null,sfName:'',sfSheet:'',et:[],result:null,decisions:{},page:0,tab:'table',map:null,mapLayer:null};
+const KEY_COLS=[CONTRACT_COL,OPE_COL,"Nom de l'opération",'Nom de la société: Nom de la société','Référentiel',BUILDING_COL,'Total logements','Nombre de logements','Ville','Latitude','Longitude','Cep projet','Bbio projet','DH projet','IC construction','ANRU'];
+const state={filter:'recolle',sf:null,sfName:'',sfSheet:'',et:[],result:null,decisions:{},page:0,tab:'table',map:null,mapLayer:null,anru:null,anruMap:null,anruLayer:null,mentionsOff:new Set()};
 try{ state.decisions=JSON.parse(localStorage.getItem('totalrecoll.decisions')||'{}'); }catch{}
 const saveDecisions=()=>{ try{ localStorage.setItem('totalrecoll.decisions',JSON.stringify(state.decisions)); }catch{} };
 
@@ -57,7 +57,7 @@ function run(){
   renderSources();
   state.result=null;
   if(state.sf&&state.et.length){
-    try{ state.result=recoll(state.sf,state.et.flatMap(e=>e.ops),{keepSalesforce:document.querySelector('input[name=default]:checked').value==='sf',decisions:state.decisions}); }
+    try{ state.result=recoll(state.sf,state.et.flatMap(e=>e.ops),{keepSalesforce:document.querySelector('input[name=default]:checked').value==='sf',decisions:state.decisions,anru:state.anru}); }
     catch(e){ toast(e.message,'error'); }
   }
   const ok=!!state.result;
@@ -103,9 +103,9 @@ function renderControl(){
   $('kpis').innerHTML=chip('recolle','Recollées',r.meta.filter(m=>m.kind==='recolle'||m.kind==='vide').length,'et')+chip('check','À contrôler',issues,issues?'check':'')
     +chip('sf','Tous contrats seul',r.meta.filter(m=>m.kind==='sf').length,'sf')+chip('et','ExtracTerre seul',r.meta.filter(m=>m.kind==='et').length)
     +(s.conflits?chip('conflit','En conflit',r.meta.filter(m=>m.kind==='conflit').length,'bad'):'')+chip('all','Toutes les lignes',s.lignes);
-  $('nIssues').textContent=issues; $('nEcarts').textContent=s.ecarts; $('nMap').textContent=geo;
+  $('nIssues').textContent=issues; $('nEcarts').textContent=s.ecarts; $('nMap').textContent=geo; $('nAnru').textContent=anruRows().length||'';
   $('exportLine').innerHTML=`<b>${n(s.lignes)} lignes × ${r.header.length} colonnes</b> prêtes pour la feuille OPERATIONS de l’Observatoire`;
-  renderTable(); renderIssues(); renderEcarts(); renderColumns(); if(state.tab==='map') renderMap();
+  renderTable(); renderIssues(); renderEcarts(); renderColumns(); if(state.tab==='map') renderMap(); if(state.tab==='anru') renderAnru();
 }
 function visibleColumns(){
   const r=state.result, si=r.header.indexOf(STATUS_COL), preset=$('preset').value;
@@ -185,6 +185,38 @@ function renderMap(){
   if(pts.length) state.map.fitBounds(state.mapLayer.getBounds().pad(.15),{maxZoom:16});
 }
 
+/* ---------- ANRU : bâtiments en quartier NPNRU, filtrés par mention ---------- */
+const MENTIONS_COL='Opération: Mentions', NO_MENTION='(mention non renseignée)';
+// « BEE+<br>Option TFPB<br> » : une mention par ligne dans Salesforce.
+const mentionsOf=v=>{ const l=String(v??'').split(/<br\s*\/?>|&lt;br&gt;|\n/i).map(x=>x.trim()).filter(Boolean); return l.length?l:[NO_MENTION]; };
+function anruRows(){
+  const r=state.result; if(!r) return []; const a=r.header.indexOf(ANRU_COL), la=r.header.indexOf('Latitude'), lo=r.header.indexOf('Longitude'), mc=r.header.indexOf(MENTIONS_COL);
+  if(a<0) return [];
+  return r.rows.map((row,i)=>({i,lat:Number(row[la]),lon:Number(row[lo]),mentions:mentionsOf(mc<0?'':row[mc])})).filter(p=>r.rows[p.i][a]==='Oui');
+}
+function renderAnru(){
+  const r=state.result, all=anruRows(), qi=r.header.indexOf(ANRU_QP_COL), ai=r.header.indexOf(ANRU_COL);
+  if(!state.anru){ $('anruInfo').textContent='Quartiers ANRU en cours de chargement…'; return; }
+  const counts=new Map(); all.forEach(p=>p.mentions.forEach(m=>counts.set(m,(counts.get(m)||0)+1)));
+  const list=[...counts].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'fr'));
+  $('mentions').innerHTML=list.length?list.map(([m,n])=>`<label><input type="checkbox" data-mention="${esc(m)}" ${state.mentionsOff.has(m)?'':'checked'}><span>${esc(m)}</span><b>${n}</b></label>`).join(''):'<p class="muted">Aucun bâtiment en quartier ANRU.</p>';
+  const pts=all.filter(p=>p.mentions.some(m=>!state.mentionsOff.has(m)));
+  const ops=new Set(pts.map(p=>r.meta[p.i].group||p.i)).size, unsure=r.rows.filter(row=>row[ai]===''&&row[qi]).length, edge=all.filter(p=>/du périmètre$/.test(r.rows[p.i][qi]||'')).length;
+  $('anruInfo').innerHTML=`${pts.length} bâtiment(s) en quartier ANRU affiché(s), ${ops} opération(s)${pts.length<all.length?` sur ${all.length} bâtiment(s)`:''}${edge?`, dont ${edge} à 10 m au plus d’un périmètre`:''}.${unsure?` ${unsure} ligne(s) non géolocalisée(s) dans une commune qui a un quartier NPNRU : colonne ANRU laissée vide, à vérifier.`:''}<span class="anru-legend"><span><i style="border:2px solid #F5D547;background:rgba(245,213,71,.2)"></i>Quartier d’intérêt national</span><span><i style="border:2px dashed #F4E6D8"></i>Quartier d’intérêt régional</span><span><i style="background:#F5D547;border-radius:50%"></i><i style="background:#F4E6D8;border-radius:50%"></i>Bâtiment (couleur de son quartier)</span></span>`;
+  if(typeof L==='undefined'){ $('anruInfo').append(' (fond de carte indisponible hors connexion)'); return; }
+  if(!state.anruMap){
+    state.anruMap=L.map('anruMap',{scrollWheelZoom:true,preferCanvas:true}).setView([46.6,2.4],6);
+    L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/png&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',{maxZoom:19,attribution:'© IGN — Géoplateforme ; quartiers NPNRU : ANCT / ANRU'}).addTo(state.anruMap);
+    L.featureGroup(state.anru.quartiers.map(q=>L.polygon(q.rings,q.cat==='national'?{color:'#F5D547',weight:2,fillOpacity:.2}:{color:'#F4E6D8',weight:2,dashArray:'5 4',fillOpacity:.12}).bindPopup(`<b>${esc(q.nom)}</b><br>${esc(q.qp)}, intérêt ${esc(q.cat)}<br>${esc(q.communes.map(c=>c[1]).join(', '))}`))).addTo(state.anruMap);
+  }
+  setTimeout(()=>state.anruMap.invalidateSize(),0);
+  state.anruLayer?.remove();
+  state.anruLayer=L.featureGroup(pts.map(p=>{ const x=rowLabel(p.i);
+    const nat=/intérêt national/.test(r.rows[p.i][qi]||'');
+    return L.circleMarker([p.lat,p.lon],{radius:7,color:'#1A0B08',weight:2,fillColor:nat?'#F5D547':'#F4E6D8',fillOpacity:.95}).bindPopup(`<b>${esc(x.title)}</b><br>${esc(x.sub)}<br>${esc(r.rows[p.i][qi])}<br>${esc(p.mentions.join(', '))}<br><button class="btn small" data-open="${p.i}" type="button">Détail</button>`); })).addTo(state.anruMap);
+  if(pts.length) state.anruMap.fitBounds(state.anruLayer.getBounds().pad(.2),{maxZoom:15});
+}
+
 /* ---------- Détail d'une ligne ---------- */
 function openRow(i){
   const r=state.result, row=r.rows[i], m=r.meta[i], x=rowLabel(i), et=new Set(m.et), st=row[r.header.indexOf(STATUS_COL)];
@@ -229,6 +261,7 @@ function setTab(tab){
   document.querySelectorAll('.tab').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===tab)));
   document.querySelectorAll('.panel').forEach(p=>{ p.hidden=p.dataset.panel!==tab; });
   if(tab==='map') renderMap();
+  if(tab==='anru') renderAnru();
 }
 function decide(key,v){ state.decisions[key]=v; saveDecisions(); const open=$('drawer').hidden?null:+$('drawer').dataset.row; run(); if(open!=null) openRow(open); }
 function setupDrop(zone,input,handler){
@@ -272,4 +305,9 @@ $('resetDec').addEventListener('click',()=>{ state.decisions={}; saveDecisions()
 $('xlsxBtn').addEventListener('click',exportXlsx);
 $('copyBtn').addEventListener('click',()=>copyForSheets().catch(e=>toast('Copie impossible : '+e.message,'error')));
 $('helpBtn').addEventListener('click',()=>$('help').showModal());
+$('mentions').addEventListener('change',e=>{ const m=e.target.dataset.mention; if(m==null) return; e.target.checked?state.mentionsOff.delete(m):state.mentionsOff.add(m); renderAnru(); });
+$('mentionsAll').addEventListener('click',()=>{ state.mentionsOff.clear(); renderAnru(); });
+$('mentionsNone').addEventListener('click',()=>{ anruRows().forEach(p=>p.mentions.forEach(m=>state.mentionsOff.add(m))); renderAnru(); });
+fetch('data/npnru.json').then(r=>r.ok?r.json():Promise.reject(new Error(`HTTP ${r.status}`))).then(d=>{ state.anru=anruIndex(d); if(state.sf&&state.et.length) run(); })
+  .catch(e=>toast(`Quartiers ANRU non chargés (${e.message}) : la colonne ANRU ne sera pas remplie.`,'error'));
 renderSteps();

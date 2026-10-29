@@ -2,3 +2,5 @@
 *.xls
 *.json
 .DS_Store
+# Données publiques ANCT / ANRU (quartiers NPNRU), nécessaires à la colonne ANRU
+!data/npnru.json

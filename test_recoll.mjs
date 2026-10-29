@@ -93,3 +93,23 @@ assert.equal(targetColumn('DH'),'DH projet');
 const sdh=opsFromSession({format:'extracterre-session',operations:[{title:'00001001',identity:{contract:'00001001'},rows:[{building:'Bât 1',dh_zt:450,dh_znt:820,wall_ite:'Oui',cooling_active:'Non'}]}]},'s');
 assert.deepEqual([sdh[0].buildings[0].DH,sdh[0].buildings[0].ITE,sdh[0].buildings[0]['Climatisation active']],[820,'Oui','Non']);
 console.log('TotalRecoll — vérifications OK');
+
+// ANRU : quartier FICTIF carré avec un trou ; commune avec / sans quartier pour les bâtiments non géolocalisés.
+{
+  const {anruIndex,anruOf,ANRU_COL,ANRU_QP_COL}=await import('./recoll.js');
+  const sq=(a,b,c,d)=>[[a,c],[a,d],[b,d],[b,c],[a,c]];
+  const idx=anruIndex({quartiers:[{qp:'QP099001',nom:'Les Fictifs',cat:'national',communes:[['99001','Saint-Fictif']],rings:[sq(45,45.01,5,5.01),sq(45.004,45.006,5.004,5.006)]}]});
+  assert.equal(anruOf(idx,{lat:45.002,lon:5.002}).anru,'Oui');
+  assert.equal(anruOf(idx,{lat:'45,002',lon:'5,002'}).quartier,'Les Fictifs (QP099001, intérêt national)');
+  assert.equal(anruOf(idx,{lat:45.005,lon:5.005}).anru,'Non','dans le trou');
+  assert.equal(anruOf(idx,{lat:45.02,lon:5.002}).anru,'Non');
+  assert.equal(anruOf(idx,{lat:45.0101,lon:5.002}).anru,'Non','à 11 m du bord');
+  assert.equal(anruOf(idx,{lat:45.01008,lon:5.002}).quartier,'Les Fictifs (QP099001, intérêt national), à 9 m du périmètre','à 9 m du bord : intégré');
+  assert.equal(anruOf(idx,{cp:'99100',ville:'ST FICTIF CEDEX 2'}).anru,'','commune avec quartier, sans coordonnées : à vérifier');
+  assert.equal(anruOf(idx,{cp:'99100',ville:'Autreville'}).anru,'Non');
+  assert.equal(anruOf(idx,{cp:'',ville:''}).anru,'');
+  const r=recoll({header:['Numéro du contrat','Opération: Code interne','Code postal','Ville'],rows:[[1,'OPE-000001','99100','Saint-Fictif']]},
+    opsFromSession({format:'extracterre-session',operations:[{identity:{contract:'00000001'},rows:[{building:'A',latitude:45.002,longitude:5.002}]}]},'s.json'),{anru:idx});
+  assert.deepEqual([r.rows[0][r.header.indexOf(ANRU_COL)],r.rows[0][r.header.indexOf(ANRU_QP_COL)],r.header.at(-1)],['Oui','Les Fictifs (QP099001, intérêt national)','Recollement']);
+}
+console.log('ANRU OK');

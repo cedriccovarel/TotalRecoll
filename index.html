@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Michroma&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="styles.css?v=5">
+<link rel="stylesheet" href="styles.css?v=6">
 </head>
 <body>
 <header class="top">
@@ -62,6 +62,7 @@
         <button role="tab" class="tab" data-tab="issues" aria-selected="false">À contrôler <b id="nIssues"></b></button>
         <button role="tab" class="tab" data-tab="ecarts" aria-selected="false">Écarts <b id="nEcarts"></b></button>
         <button role="tab" class="tab" data-tab="map" aria-selected="false">Carte <b id="nMap"></b></button>
+        <button role="tab" class="tab" data-tab="anru" aria-selected="false">ANRU <b id="nAnru"></b></button>
         <button role="tab" class="tab" data-tab="columns" aria-selected="false">Colonnes</button>
       </div>
     </div>
@@ -101,6 +102,19 @@
       <div id="map" role="region" aria-label="Carte des bâtiments géolocalisés"></div>
     </div>
 
+    <div class="panel" data-panel="anru" hidden>
+      <p class="muted" id="anruInfo"></p>
+      <div class="anru">
+        <div id="anruMap" role="region" aria-label="Carte des bâtiments en quartier ANRU"></div>
+        <fieldset class="mentions">
+          <legend>Mentions</legend>
+          <div class="mentions-tools"><button class="btn quiet small" id="mentionsAll" type="button">Toutes</button><button class="btn quiet small" id="mentionsNone" type="button">Aucune</button></div>
+          <div id="mentions"></div>
+        </fieldset>
+      </div>
+      <p class="muted small">Quartiers du NPNRU : intérêt national (arrêté du 29 avril 2015) et intérêt régional (arrêté du 15 janvier 2019), périmètres des quartiers prioritaires 2015. Source ANCT / ANRU, data.gouv.fr, Licence Ouverte 2.0.</p>
+    </div>
+
     <div class="panel" data-panel="columns" hidden>
       <p class="muted">Où chaque libellé ExtracTerre est écrit dans le tableau Tous contrats. Les colonnes « ajoutées » n’existent pas dans Tous contrats : elles sont placées à la fin, avant « Recollement ».</p>
       <div class="scroll"><table id="columns" class="grid"></table></div>
@@ -133,6 +147,7 @@
     <li><b>Une ligne par bâtiment.</b> Chaque bâtiment ExtracTerre devient une ligne ; les colonnes Salesforce (statut, maître d’ouvrage, dates, totaux) sont recopiées sur chacune. Si Tous contrats a déjà autant de lignes que de bâtiments, elles sont associées dans l’ordre ; sinon la ligne est à vérifier.</li>
     <li><b>Colonnes.</b> Les données techniques et la localisation viennent d’ExtracTerre ; les colonnes administratives restent celles de Salesforce.</li>
     <li><b>Écarts.</b> Quand Tous contrats contient déjà une autre valeur, le choix par défaut s’applique ; chaque écart peut être tranché un par un.</li>
+    <li><b>ANRU.</b> Un bâtiment géolocalisé dans l’un des 480 quartiers du NPNRU (intérêt national et régional) (ou à 10 m au plus de son périmètre) est « Oui ». Sans coordonnées, la commune décide : « Non » si elle n’a aucun quartier NPNRU, case vide à vérifier sinon.</li>
     <li><b>Confidentialité.</b> Tout est calculé dans ce navigateur. Seule la carte charge des fonds de plan IGN.</li>
   </ul>
   <form method="dialog"><button class="btn">Fermer</button></form>
@@ -141,6 +156,6 @@
 <div id="toasts" aria-live="polite"></div>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script type="module" src="app.js?v=6"></script>
+<script type="module" src="app.js?v=7"></script>
 </body>
 </html>
