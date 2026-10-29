@@ -11,4 +11,6 @@ Recolle le tableau « Tous contrats » (Salesforce) avec les données techniques
 
 `fields.js` est généré depuis `js/config.js` d’ExtracTerre (FIELD_DEFS, familles techniques).
 
+DH (ExtracTerre ≥ 2.11) : « DH projet » reçoit le plus défavorable de DH ZT / DH ZNT ; un DH sans type de zone (exports plus anciens) est reporté en DH ZNT, ou en DH ZT si le bâtiment n’a que des logements traversants. Les colonnes DH ZT, DH ZNT, ITE, ITI, Brasseur d’air et Climatisation active sont ajoutées en fin de tableau quand OPERATIONS ne les a pas.
+
 Tests : `node test_recoll.mjs` (données fictives).

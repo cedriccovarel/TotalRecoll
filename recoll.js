@@ -1,5 +1,5 @@
 // Recollement Salesforce (tableau « Tous contrats », 1 ligne = 1 bâtiment) × ExtracTerre (données techniques par bâtiment).
-import {ET_FIELDS} from './fields.js?v=3';
+import {ET_FIELDS} from './fields.js?v=4';
 
 export const CONTRACT_COL='Numéro du contrat', OPE_COL='Opération: Code interne';
 export const STATUS_COL='Recollement', BUILDING_COL='Bâtiment';
@@ -48,7 +48,18 @@ export function etOperation(buildings,ids=[],source=''){
   const all=[...ids,...buildings.flatMap(b=>[b['Contrat: Numéro du contrat'],b['Code interne'],b['Opération'],b['Projet']])];
   const contract=all.map(normContract).find(Boolean)||'';
   const code=all.map(normOpe).find(Boolean)||'';
-  return {contract,code,source,buildings:buildings.map(b=>Object.fromEntries(Object.entries(b).filter(([k,v])=>TECH_SET.has(k)&&!empty(v))))};
+  return {contract,code,source,buildings:buildings.map(b=>withDh(Object.fromEntries(Object.entries(b).filter(([k,v])=>TECH_SET.has(k)&&!empty(v)))))};
+}
+// ExtracTerre ≥ 2.11 : DH ZT / DH ZNT. « DH projet » reçoit le plus défavorable des deux ; un DH sans type de zone
+// (exports plus anciens) va en DH ZNT, sauf bâtiment uniquement traversant (DH ZT) — même règle qu'ExtracTerre.
+export const DH_ZT='DH Zone traversante (DH ZT)', DH_ZNT='DH Zone non traversante (DH ZNT)';
+const num=v=>{ const n=Number(String(v??'').replace(/\s/g,'').replace(',','.')); return String(v??'').trim()!==''&&Number.isFinite(n)?n:null; };
+const yes=v=>!empty(v)&&!/^(?:non|aucun|0)$/i.test(String(v).trim());
+export function withDh(b){
+  const o={...b};
+  if(num(o[DH_ZT])===null&&num(o[DH_ZNT])===null&&num(o.DH)!==null) o[yes(o['Logement traversant'])&&!yes(o['Logement non traversant'])?DH_ZT:DH_ZNT]=o.DH;
+  const z=[o[DH_ZT],o[DH_ZNT]].map(num).filter(x=>x!==null); if(z.length) o.DH=Math.max(...z);
+  return o;
 }
 // Clé d'une décision d'écart (stable d'un recollement à l'autre).
 export const ecartKey=e=>`${e.contrat||e.ope}|${e.batiment}|${e.colonne}`;

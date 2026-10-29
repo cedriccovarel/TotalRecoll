@@ -1,6 +1,6 @@
 // Données fictives uniquement.
 import assert from 'node:assert/strict';
-import {recoll,opsFromSession,opsFromBuildingRows,normContract,normOpe,ecartKey} from './recoll.js';
+import {recoll,opsFromSession,opsFromBuildingRows,normContract,normOpe,ecartKey,withDh,DH_ZT,DH_ZNT,targetColumn} from './recoll.js';
 
 assert.equal(normContract(258),'00000258');
 assert.equal(normContract('00004398'),'00004398');
@@ -85,4 +85,11 @@ assert.equal(dec.ecarts[0].decided,true);
 assert.equal(ecartKey(out.ecarts[0]),'00001002|Bât 2|Cep projet');
 assert.throws(()=>recoll({header:['x'],rows:[]},[]),/introuvables/);
 assert.throws(()=>opsFromSession({},'x'),/session ExtracTerre/);
+// DH ZT / DH ZNT (ExtracTerre ≥ 2.11) : DH projet = le plus défavorable ; DH sans zone → ZNT (ZT si uniquement traversant).
+assert.deepEqual(withDh({[DH_ZT]:500,[DH_ZNT]:'712,5'}),{[DH_ZT]:500,[DH_ZNT]:'712,5',DH:712.5});
+assert.deepEqual(withDh({DH:640}),{DH:640,[DH_ZNT]:640});
+assert.deepEqual(withDh({DH:640,'Logement traversant':'Oui'}),{DH:640,'Logement traversant':'Oui',[DH_ZT]:640});
+assert.equal(targetColumn('DH'),'DH projet');
+const sdh=opsFromSession({format:'extracterre-session',operations:[{title:'00001001',identity:{contract:'00001001'},rows:[{building:'Bât 1',dh_zt:450,dh_znt:820,wall_ite:'Oui',cooling_active:'Non'}]}]},'s');
+assert.deepEqual([sdh[0].buildings[0].DH,sdh[0].buildings[0].ITE,sdh[0].buildings[0]['Climatisation active']],[820,'Oui','Non']);
 console.log('TotalRecoll — vérifications OK');
