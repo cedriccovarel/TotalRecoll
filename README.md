@@ -15,6 +15,13 @@ DH (ExtracTerre ≥ 2.11) : « DH projet » reçoit le plus défavorable de DH Z
 
 Tests : `node test_recoll.mjs` (données fictives).
 
+## Confort d’été
+
+Onglet **Confort d’été** : par bâtiment, DH des zones traversantes et non traversantes, système constructif, brasseur d’air (Oui / Non), bâtiment climatisé (Oui / Non), exportable en CSV. Valeurs lues dans les colonnes recollées (Tous contrats + ExtracTerre) ; rien n’est ajouté à l’export OPERATIONS.
+
+- Système constructif : « Ossature bois » (dont CLT, bois massif) ; « Béton ou brique + isolation extérieure » si ITE ; « Béton ou brique + isolation intérieure ou isolation répartie » si ITI, monomur ou béton cellulaire.
+- Une structure ou une isolation absente, mixte (ITE et ITI) ou hors catégories reste vide ; la raison est dans « À vérifier ».
+
 ## ANRU (NPNRU)
 
 Colonnes **ANRU** (Oui / Non) et **Quartier ANRU** ajoutées avant « Recollement », et onglet **ANRU** : carte des bâtiments situés dans un quartier du NPNRU, filtrée par les mentions de l’opération (« Opération: Mentions », cases à cocher).

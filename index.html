@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Michroma&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="styles.css?v=7">
+<link rel="stylesheet" href="styles.css?v=8">
 </head>
 <body>
 <header class="top">
@@ -63,6 +63,7 @@
         <button role="tab" class="tab" data-tab="ecarts" aria-selected="false">Écarts <b id="nEcarts"></b></button>
         <button role="tab" class="tab" data-tab="map" aria-selected="false">Carte <b id="nMap"></b></button>
         <button role="tab" class="tab" data-tab="anru" aria-selected="false">ANRU <b id="nAnru"></b></button>
+        <button role="tab" class="tab" data-tab="confort" aria-selected="false">Confort d’été <b id="nConfort"></b></button>
         <button role="tab" class="tab" data-tab="columns" aria-selected="false">Colonnes</button>
       </div>
     </div>
@@ -116,6 +117,12 @@
       <p class="muted small">Quartiers du NPNRU : intérêt national (arrêté du 29 avril 2015) et intérêt régional (arrêté du 15 janvier 2019), périmètres des quartiers prioritaires 2015. Source ANCT / ANRU, data.gouv.fr, Licence Ouverte 2.0.</p>
     </div>
 
+    <div class="panel" data-panel="confort" hidden>
+      <div class="tools"><p class="muted grow" id="confortInfo"></p><button class="btn small" id="confortCsv" type="button">Exporter en CSV</button></div>
+      <div class="scroll"><table id="confort" class="grid"></table></div>
+      <p class="muted small">Système constructif : ossature bois (dont CLT, bois massif) ; béton ou brique + isolation extérieure si ITE ; + isolation intérieure ou répartie si ITI, monomur ou béton cellulaire. Une structure ou une isolation absente, mixte (ITE et ITI) ou hors de ces catégories reste vide, avec la raison dans « À vérifier ». Brasseur d’air : colonne Oui / Non, sinon le nombre de brasseurs. Climatisation : colonne Climatisation active, sinon le refroidissement après travaux.</p>
+    </div>
+
     <div class="panel" data-panel="columns" hidden>
       <p class="muted">Où chaque libellé ExtracTerre est écrit dans le tableau Tous contrats. Les colonnes « ajoutées » n’existent pas dans Tous contrats : elles sont placées à la fin, avant « Recollement ».</p>
       <div class="scroll"><table id="columns" class="grid"></table></div>
@@ -157,6 +164,6 @@
 <div id="toasts" aria-live="polite"></div>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script type="module" src="app.js?v=8"></script>
+<script type="module" src="app.js?v=9"></script>
 </body>
 </html>

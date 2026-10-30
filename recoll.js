@@ -205,3 +205,36 @@ export function anruOf(index,{lat,lon,cp,ville}){
   const c=normCity(ville); if(!c||!String(cp??'').trim()) return {anru:'',quartier:''};
   return index.cities.has(deptOf(cp)+'|'+c)?{anru:'',quartier:'Commune avec quartier NPNRU : bâtiment non géolocalisé'}:{anru:'Non',quartier:''};
 }
+
+// Confort d'été : DH ZT / DH ZNT, système constructif, brasseur d'air, climatisation, normalisés par bâtiment.
+// get(colonne) lit la ligne recollée. Une valeur absente ou ambiguë reste vide, avec la raison dans « note ».
+export const SYSTEMS={iti:'Béton ou brique + isolation intérieure ou isolation répartie',ite:'Béton ou brique + isolation extérieure',bois:'Ossature bois'};
+const nt=v=>String(v??'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();
+const RE_BOIS=/ossature\s*bois|\bmob\b|\bcob\b|\bclt\b|bois\s*massif|colombage|pans?\s*de\s*bois/;
+const RE_MASS=/beton|brique|parpaing|\bblocs?\b|pierre|meuliere|moellon|maconn|porotherm|monomur|banche|prefabriqu|\bvoiles?\b|terre\s*cuite|agglo/;
+const RE_REPART=/monomur|beton\s*cellulaire|isolation\s*repartie|thermo\s*brique|brique\s*isolante/;
+const yesNo=v=>{ const s=nt(v); return /^oui\b/.test(s)?true:/^non\b/.test(s)?false:null; };
+export function confortOf(get){
+  // Structure des murs, sinon mode constructif (« Poutrelles-hourdis », un plancher, ne décide pas si l'autre colonne le fait).
+  const cands=[get('Parois verticales structure'),get('Mode constructif')].filter(v=>!empty(v)), raw=cands.find(v=>RE_BOIS.test(nt(v))||RE_MASS.test(nt(v)))??cands[0];
+  const notes=[], dh=l=>num(get(l)), struct=nt(raw);
+  // ITE / ITI : la colonne Oui / Non prime ; sinon un isolant ITE / ITI renseigné, ou la mention dans le type d'isolant.
+  const ins=nt(get('Parois verticales type d’isolant'));
+  const side=(col,isoCol,re)=>yesNo(get(col))??(!empty(get(isoCol))||re.test(ins)?true:null);
+  const ite=side('ITE','Parois verticales ITE type d’isolant',/\bite\b|exterieur|isofacade/), iti=side('ITI','Parois verticales ITI type d’isolant',/\biti\b|interieur|doublage|doublissimo|complexe isolant/);
+  let system='';
+  if(RE_BOIS.test(struct)) system=SYSTEMS.bois;
+  else if(RE_MASS.test(struct)){
+    if(ite&&iti) notes.push('ITE et ITI : à trancher');
+    else if(ite) system=SYSTEMS.ite;
+    else if(iti||RE_REPART.test(struct)) system=SYSTEMS.iti;
+    else notes.push('isolation des murs non précisée');
+  } else if(struct) notes.push(`structure hors catégories : ${raw}`);
+  else if(ite||iti) notes.push('structure non renseignée');
+  const fanN=num(get('Nombre de brasseurs d’air')), fanYN=yesNo(get('Brasseur d’air'));
+  const fan=fanYN!==null?fanYN:fanN!==null?fanN>0:null;
+  const cool=nt(get('Refroidissement après travaux'));
+  const clim=yesNo(get('Climatisation active'))??(/^(?:aucun|sans|pas de|neant|non)\b/.test(cool)?false:/climatis|split|groupe froid|reversible|\bvrv\b|\bdrv\b/.test(cool)?true:null);
+  const on=b=>b===null?'':b?'Oui':'Non';
+  return {dhZt:dh(DH_ZT),dhZnt:dh(DH_ZNT),system,fan:on(fan),clim:on(clim),note:notes.join(' ; ')};
+}

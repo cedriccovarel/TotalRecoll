@@ -113,3 +113,27 @@ console.log('TotalRecoll — vérifications OK');
   assert.deepEqual([r.rows[0][r.header.indexOf(ANRU_COL)],r.rows[0][r.header.indexOf(ANRU_QP_COL)],r.header.at(-1)],['Oui','Les Fictifs (QP099001, intérêt national)','Recollement']);
 }
 console.log('ANRU OK');
+
+// Confort d'été (données fictives).
+{
+  const {confortOf,SYSTEMS}=await import('./recoll.js');
+  const c=o=>confortOf(k=>o[k]);
+  assert.equal(c({'Parois verticales structure':'Ossature bois'}).system,SYSTEMS.bois);
+  assert.equal(c({'Mode constructif':'CLT'}).system,SYSTEMS.bois);
+  assert.equal(c({'Parois verticales structure':'Brique terre cuite','ITE':'Oui'}).system,SYSTEMS.ite);
+  assert.equal(c({'Parois verticales structure':'Béton armé','Parois verticales ITI type d’isolant':'PSE'}).system,SYSTEMS.iti);
+  assert.equal(c({'Parois verticales structure':'Monomur 37 cm'}).system,SYSTEMS.iti);
+  assert.equal(c({'Mode constructif':'Bloc béton / parpaing','Parois verticales type d’isolant':'Laine de roche en ITE'}).system,SYSTEMS.ite);
+  assert.deepEqual([c({'Parois verticales structure':'Béton','ITE':'Oui','ITI':'Oui'}).system,c({'Parois verticales structure':'Béton','ITE':'Oui','ITI':'Oui'}).note],['','ITE et ITI : à trancher']);
+  assert.equal(c({'Parois verticales structure':'Béton armé','ITE':'Non','Parois verticales type d’isolant':'Laine en ITE'}).note,'isolation des murs non précisée');
+  assert.equal(c({'Mode constructif':'Structure métallique'}).note,'structure hors catégories : Structure métallique');
+  const x=c({[DH_ZT]:'512,4',[DH_ZNT]:700,'Nombre de brasseurs d’air':0,'Refroidissement après travaux':'Split / multisplit'});
+  assert.deepEqual([x.dhZt,x.dhZnt,x.fan,x.clim],[512.4,700,'Non','Oui']);
+  assert.deepEqual([c({'Brasseur d’air':'Oui','Climatisation active':'Non','Refroidissement après travaux':'Split'}).fan,c({'Climatisation active':'Non','Refroidissement après travaux':'Split'}).clim,c({'Refroidissement après travaux':'Aucun'}).clim,c({}).fan],['Oui','Non','Non','']);
+}
+console.log('Confort d’été OK');
+{
+  const {confortOf,SYSTEMS}=await import('./recoll.js');
+  assert.equal(confortOf(k=>({'Parois verticales structure':'Poutrelles-hourdis','Mode constructif':'Brique','Parois verticales type d’isolant':'Complexe isolant Doublissimo'})[k]).system,SYSTEMS.iti);
+}
+console.log('Confort d’été (2) OK');

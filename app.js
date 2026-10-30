@@ -1,4 +1,4 @@
-import {recoll,opsFromSession,opsFromBuildingRows,CONTRACT_COL,OPE_COL,STATUS_COL,BUILDING_COL,KINDS,TECH_LABELS,targetColumn,empty,anruIndex,ANRU_COL,ANRU_QP_COL} from './recoll.js?v=5';
+import {recoll,opsFromSession,opsFromBuildingRows,CONTRACT_COL,OPE_COL,STATUS_COL,BUILDING_COL,KINDS,TECH_LABELS,targetColumn,empty,anruIndex,ANRU_COL,ANRU_QP_COL,confortOf} from './recoll.js?v=6';
 
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -103,9 +103,9 @@ function renderControl(){
   $('kpis').innerHTML=chip('recolle','Recollées',r.meta.filter(m=>m.kind==='recolle'||m.kind==='vide').length,'et')+chip('check','À contrôler',issues,issues?'check':'')
     +chip('sf','Tous contrats seul',r.meta.filter(m=>m.kind==='sf').length,'sf')+chip('et','ExtracTerre seul',r.meta.filter(m=>m.kind==='et').length)
     +(s.conflits?chip('conflit','En conflit',r.meta.filter(m=>m.kind==='conflit').length,'bad'):'')+chip('all','Toutes les lignes',s.lignes);
-  $('nIssues').textContent=issues; $('nEcarts').textContent=s.ecarts; $('nMap').textContent=geo; $('nAnru').textContent=anruRows().length||'';
+  $('nIssues').textContent=issues; $('nEcarts').textContent=s.ecarts; $('nMap').textContent=geo; $('nAnru').textContent=anruRows().length||''; $('nConfort').textContent=confortRows().length||'';
   $('exportLine').innerHTML=`<b>${n(s.lignes)} lignes × ${r.header.length} colonnes</b> prêtes pour la feuille OPERATIONS de l’Observatoire`;
-  renderTable(); renderIssues(); renderEcarts(); renderColumns(); if(state.tab==='map') renderMap(); if(state.tab==='anru') renderAnru();
+  renderTable(); renderIssues(); renderEcarts(); renderColumns(); if(state.tab==='map') renderMap(); if(state.tab==='anru') renderAnru(); if(state.tab==='confort') renderConfort();
 }
 function visibleColumns(){
   const r=state.result, si=r.header.indexOf(STATUS_COL), preset=$('preset').value;
@@ -198,12 +198,35 @@ const anruShown=(all=anruRows())=>all.filter(p=>p.mentions.some(m=>!state.mentio
 // Export des bâtiments affichés sur la carte ANRU (mentions cochées), toutes colonnes ; « ; » et BOM pour Excel.
 function exportAnruCsv(){
   const r=state.result, pts=anruShown(); if(!pts.length){ toast('Aucune opération à exporter : cochez au moins une mention.','error'); return; }
-  const cell=v=>{ const s=v==null?'':typeof v==='number'?String(v).replace('.',','):String(v); return /[;"\n\r]/.test(s)?`"${s.replace(/"/g,'""')}"`:s; };
   const mc=r.header.indexOf(MENTIONS_COL), val=(row,j)=>j===mc&&row[j]!=null?mentionsOf(row[j]).filter(m=>m!==NO_MENTION).join(' / '):row[j];
-  const csv='\ufeff'+[r.header,...pts.map(p=>r.rows[p.i])].map((row,k)=>r.header.map((_,j)=>cell(k?val(row,j):row[j])).join(';')).join('\r\n');
-  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})); a.download=`TotalRecoll_ANRU_${new Date().toISOString().slice(0,10)}.csv`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  downloadCsv('ANRU',r.header,pts.map(p=>r.header.map((_,j)=>val(r.rows[p.i],j))));
   toast(`${pts.length} bâtiment(s) exporté(s), ${new Set(pts.map(p=>r.meta[p.i].group||p.i)).size} opération(s).`,'success');
 }
+// « ; » et BOM pour Excel ; nombres à virgule.
+function downloadCsv(name,header,rows){
+  const cell=v=>{ const s=v==null?'':typeof v==='number'?String(v).replace('.',','):String(v); return /[;"\n\r]/.test(s)?`"${s.replace(/"/g,'""')}"`:s; };
+  const csv='\ufeff'+[header,...rows].map(row=>row.map(cell).join(';')).join('\r\n');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})); a.download=`TotalRecoll_${name}_${new Date().toISOString().slice(0,10)}.csv`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+
+/* ---------- Confort d'été : valeurs normalisées par bâtiment ---------- */
+const CONFORT_HEAD=['Contrat','OPE',"Nom de l'opération",'Bâtiment','DH zones traversantes','DH zones non traversantes','Système constructif','Brasseur d’air','Bâtiment climatisé','À vérifier'];
+function confortRows(){
+  const r=state.result; if(!r) return [];
+  return r.rows.map((row,i)=>{ const get=h=>{ const j=r.header.indexOf(h); return j<0?undefined:row[j]; }; const c=confortOf(get);
+    return {i,cells:[get(CONTRACT_COL),get(OPE_COL),get("Nom de l'opération"),get(BUILDING_COL),c.dhZt,c.dhZnt,c.system,c.fan,c.clim,c.note]}; })
+    .filter(x=>x.cells.slice(4).some(v=>!empty(v)));
+}
+function renderConfort(){
+  const r=state.result, rows=confortRows(), n=k=>rows.filter(x=>!empty(x.cells[k])).length;
+  $('confortInfo').textContent=rows.length?`${rows.length} bâtiment(s) avec au moins une valeur sur ${r.rows.length} ligne(s) : DH ZT ${n(4)}, DH ZNT ${n(5)}, système constructif ${n(6)}, brasseur d’air ${n(7)}, climatisation ${n(8)}, à vérifier ${n(9)}.`:'Aucune de ces valeurs dans les données recollées.';
+  $('confort').innerHTML=rows.length?`<thead><tr>${CONFORT_HEAD.map(h=>`<th scope="col">${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(x=>`<tr tabindex="0" data-row="${x.i}">${x.cells.map(v=>`<td title="${esc(fmt(v))}">${esc(fmt(v))}</td>`).join('')}</tr>`).join('')}</tbody>`:'';
+}
+function exportConfortCsv(){
+  const rows=confortRows(); if(!rows.length){ toast('Aucune valeur de confort d’été à exporter.','error'); return; }
+  downloadCsv('Confort_ete',CONFORT_HEAD,rows.map(x=>x.cells)); toast(`${rows.length} bâtiment(s) exporté(s).`,'success');
+}
+
 function renderAnru(){
   const r=state.result, all=anruRows(), qi=r.header.indexOf(ANRU_QP_COL), ai=r.header.indexOf(ANRU_COL);
   if(!state.anru){ $('anruInfo').textContent='Quartiers ANRU en cours de chargement…'; return; }
@@ -272,6 +295,7 @@ function setTab(tab){
   document.querySelectorAll('.panel').forEach(p=>{ p.hidden=p.dataset.panel!==tab; });
   if(tab==='map') renderMap();
   if(tab==='anru') renderAnru();
+  if(tab==='confort') renderConfort();
 }
 function decide(key,v){ state.decisions[key]=v; saveDecisions(); const open=$('drawer').hidden?null:+$('drawer').dataset.row; run(); if(open!=null) openRow(open); }
 function setupDrop(zone,input,handler){
@@ -317,6 +341,7 @@ $('copyBtn').addEventListener('click',()=>copyForSheets().catch(e=>toast('Copie 
 $('helpBtn').addEventListener('click',()=>$('help').showModal());
 $('mentions').addEventListener('change',e=>{ const m=e.target.dataset.mention; if(m==null) return; e.target.checked?state.mentionsOff.delete(m):state.mentionsOff.add(m); renderAnru(); });
 $('anruCsv').addEventListener('click',exportAnruCsv);
+$('confortCsv').addEventListener('click',exportConfortCsv);
 $('mentionsAll').addEventListener('click',()=>{ state.mentionsOff.clear(); renderAnru(); });
 $('mentionsNone').addEventListener('click',()=>{ anruRows().forEach(p=>p.mentions.forEach(m=>state.mentionsOff.add(m))); renderAnru(); });
 fetch('data/npnru.json').then(r=>r.ok?r.json():Promise.reject(new Error(`HTTP ${r.status}`))).then(d=>{ state.anru=anruIndex(d); if(state.sf&&state.et.length) run(); })

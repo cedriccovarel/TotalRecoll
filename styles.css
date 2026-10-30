@@ -121,7 +121,7 @@ main{max-width:1640px;margin:0 auto;padding:24px 24px 40px}
 .tab:hover{color:var(--ink)}
 .tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--rust)}
 .tab b{font-weight:600;color:var(--ink-3);margin-left:4px}
-.tools{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.tools{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}.tools .grow{flex:1;min-width:200px;margin:0;align-self:center}
 .tools input,.tools select{border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);border-radius:6px;padding:8px 11px;font:inherit}
 .tools input{flex:1;min-width:240px}
 .table-meta{display:flex;flex-wrap:wrap;align-items:center;gap:16px;margin-bottom:8px;font-size:12.5px;color:var(--ink-3)}
