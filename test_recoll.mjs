@@ -137,3 +137,17 @@ console.log('Confort d’été OK');
   assert.equal(confortOf(k=>({'Parois verticales structure':'Poutrelles-hourdis','Mode constructif':'Brique','Parois verticales type d’isolant':'Complexe isolant Doublissimo'})[k]).system,SYSTEMS.iti);
 }
 console.log('Confort d’été (2) OK');
+
+// Valeurs étranges et tri par colonne (données fictives).
+{
+  const {oddValue,COLUMN_KEY,sortRowIndexes}=await import('./recoll.js');
+  assert.ok(oddValue('tic',21)); assert.equal(oddValue('tic','27,4'),''); assert.ok(oddValue('dh_znt',1400)); assert.ok(oddValue('dh',2)); assert.equal(oddValue('dh_zt',600),'');
+  assert.ok(oddValue('cep','450,5')); assert.equal(oddValue('cep_before',650),''); assert.ok(oddValue('heating_vector_after','Chaudière fioul')); assert.equal(oddValue('heating_vector_before','Fioul'),'');
+  assert.equal(oddValue('tic',''),''); assert.equal(COLUMN_KEY[targetColumn('Tic')],'tic');
+  const rows=[['12,5','b'],[3,'A'],['','c'],[100,'é']];
+  assert.deepEqual(sortRowIndexes([0,1,2,3],rows,0,'asc'),[1,0,3,2],'nombres croissants, vide en fin');
+  assert.deepEqual(sortRowIndexes([0,1,2,3],rows,0,'desc'),[3,0,1,2],'nombres décroissants, vide en fin');
+  assert.deepEqual(sortRowIndexes([0,1,2,3],rows,1,'asc'),[1,0,2,3],'textes sans casse');
+  assert.deepEqual(sortRowIndexes([0,1,2,3],rows,null,''),[0,1,2,3],'sans tri : ordre d’origine');
+}
+console.log('Valeurs étranges et tri OK');

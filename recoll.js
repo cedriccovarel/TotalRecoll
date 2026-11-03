@@ -238,3 +238,27 @@ export function confortOf(get){
   const on=b=>b===null?'':b?'Oui':'Non';
   return {dhZt:dh(DH_ZT),dhZnt:dh(DH_ZNT),system,fan:on(fan),clim:on(clim),note:notes.join(' ; ')};
 }
+
+// Valeurs plausibles mais étranges, surlignées en jaune (jamais modifiées) — mêmes règles qu'ExtracTerre (js/sanity.js oddValue) :
+// Tic < 24 °C ; DH < 10 ou > 1 250 °C.h ; Cep / Cep,nr après travaux > 300 kWhep/m².an, avant travaux > 800 ; fioul après travaux.
+export const ODD_RANGES={tic:[24,null],dh:[10,1250],dh_zt:[10,1250],dh_znt:[10,1250],cep:[null,300],cepnr:[null,300],cep_after_final:[null,300],cep_before:[null,800]};
+const ODD_AFTER_VECTORS=new Set(['heating_vector_after','heating_mode_after','ecs_vector_after']);
+export function oddValue(key,v){
+  if(empty(v)) return '';
+  if(ODD_AFTER_VECTORS.has(key)) return /\b(?:fioul|fuel|mazout)\b/i.test(String(v))?'Fioul après travaux : inhabituel':'';
+  const r=ODD_RANGES[key]; if(!r) return '';
+  const n=typeof v==='number'?v:Number(String(v).replace(/[\s\u00a0]/g,'').replace(',','.')); if(!Number.isFinite(n)) return '';
+  if(r[0]!==null&&n<r[0]) return `Valeur très faible (< ${r[0]}) : à vérifier`;
+  if(r[1]!==null&&n>r[1]) return `Valeur très élevée (> ${r[1].toLocaleString('fr-FR')}) : à vérifier`;
+  return '';
+}
+// Colonne du tableau → clé ExtracTerre (pour appliquer oddValue).
+export const COLUMN_KEY=Object.fromEntries(ET_FIELDS.map(([k,l])=>[targetColumn(l),k]));
+// Tri d'une colonne : nombres (y compris « 12,5 ») par valeur, textes sans casse ni accents ; cellules vides toujours en fin.
+const sortNum=v=>typeof v==='number'?v:/^-?\d[\d\s\u00a0]*(?:[.,]\d+)?$/.test(String(v).trim())?Number(String(v).replace(/[\s\u00a0]/g,'').replace(',','.')):null;
+export function sortRowIndexes(idx,rows,col,dir){
+  if(col==null||!dir) return idx; const s=dir==='desc'?-1:1;
+  return [...idx].sort((a,b)=>{ const x=rows[a][col], y=rows[b][col], ex=empty(x), ey=empty(y); if(ex||ey) return ex-ey;
+    const nx=sortNum(x), ny=sortNum(y); if(nx!==null&&ny!==null) return s*(nx-ny)||a-b;
+    return s*String(x).localeCompare(String(y),'fr',{numeric:true,sensitivity:'base'})||a-b; });
+}

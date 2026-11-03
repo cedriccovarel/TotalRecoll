@@ -1,11 +1,11 @@
-import {recoll,opsFromSession,opsFromBuildingRows,CONTRACT_COL,OPE_COL,STATUS_COL,BUILDING_COL,KINDS,TECH_LABELS,targetColumn,empty,anruIndex,ANRU_COL,ANRU_QP_COL,confortOf} from './recoll.js?v=6';
+import {recoll,opsFromSession,opsFromBuildingRows,CONTRACT_COL,OPE_COL,STATUS_COL,BUILDING_COL,KINDS,TECH_LABELS,targetColumn,empty,anruIndex,ANRU_COL,ANRU_QP_COL,confortOf,oddValue,COLUMN_KEY,sortRowIndexes} from './recoll.js?v=7';
 
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const fmt=v=>v==null?'':typeof v==='number'?v.toLocaleString('fr-FR',{maximumFractionDigits:6}):String(v);
 const PAGE=100;
 const KEY_COLS=[CONTRACT_COL,OPE_COL,"Nom de l'opération",'Nom de la société: Nom de la société','Référentiel',BUILDING_COL,'Total logements','Nombre de logements','Ville','Latitude','Longitude','Cep projet','Bbio projet','DH projet','IC construction','ANRU'];
-const state={filter:'recolle',sf:null,sfName:'',sfSheet:'',et:[],result:null,decisions:{},page:0,tab:'table',map:null,mapLayer:null,anru:null,anruMap:null,anruLayer:null,mentionsOff:new Set()};
+const state={filter:'recolle',sf:null,sfName:'',sfSheet:'',et:[],result:null,decisions:{},page:0,sort:{col:null,dir:''},tab:'table',map:null,mapLayer:null,anru:null,anruMap:null,anruLayer:null,mentionsOff:new Set()};
 try{ state.decisions=JSON.parse(localStorage.getItem('totalrecoll.decisions')||'{}'); }catch{}
 const saveDecisions=()=>{ try{ localStorage.setItem('totalrecoll.decisions',JSON.stringify(state.decisions)); }catch{} };
 
@@ -117,15 +117,18 @@ function visibleColumns(){
 function filteredRows(){
   const r=state.result, q=$('search').value.trim().toLowerCase(), f=FILTERS[state.filter];
   const out=[]; r.rows.forEach((row,i)=>{ if(f(r.meta[i])&&(!q||row.some(v=>v!=null&&String(v).toLowerCase().includes(q)))) out.push(i); });
-  return out;
+  return sortRowIndexes(out,r.rows,state.sort.col,state.sort.dir);
 }
 const statusHtml=(i)=>{ const m=kindOf(i), t=state.result.rows[i][state.result.header.indexOf(STATUS_COL)]; return `<span class="status s-${m.kind} ${m.check?'s-check':''}" title="${esc(t)}">${esc(m.check&&m.kind==='recolle'?'À vérifier':KINDS[m.kind])}</span>`; };
 function renderTable(){
   const r=state.result, idx=filteredRows(), cols=visibleColumns(), si=cols[0];
   const pages=Math.max(1,Math.ceil(idx.length/PAGE)); state.page=Math.min(state.page,pages-1);
   const slice=idx.slice(state.page*PAGE,(state.page+1)*PAGE);
-  $('table').innerHTML=`<thead><tr>${cols.map(c=>`<th scope="col">${esc(r.header[c])}</th>`).join('')}</tr></thead><tbody>${slice.map(i=>{ const et=new Set(r.meta[i].et);
-    return `<tr tabindex="0" data-row="${i}">${cols.map(c=>c===si?`<td>${statusHtml(i)}</td>`:`<td class="${et.has(c)?'et':''}" title="${esc(fmt(r.rows[i][c]))}">${esc(fmt(r.rows[i][c]))}</td>`).join('')}</tr>`; }).join('')}</tbody>`;
+  const arrows=c=>{ const on=d=>state.sort.col===c&&state.sort.dir===d; return `<span class="sort" role="group" aria-label="Trier ${esc(r.header[c])}"><button type="button" data-sort="${c}" data-dir="asc" aria-pressed="${on('asc')}" title="Ordre croissant">▲</button><button type="button" data-sort="${c}" data-dir="desc" aria-pressed="${on('desc')}" title="Ordre décroissant">▼</button></span>`; };
+  const sortAttr=c=>state.sort.col===c?` aria-sort="${state.sort.dir==='asc'?'ascending':'descending'}"`:'';
+  $('table').innerHTML=`<thead><tr>${cols.map(c=>`<th scope="col"${sortAttr(c)}><span class="th-in">${esc(r.header[c])}${arrows(c)}</span></th>`).join('')}</tr></thead><tbody>${slice.map(i=>{ const et=new Set(r.meta[i].et);
+    return `<tr tabindex="0" data-row="${i}">${cols.map(c=>{ if(c===si) return `<td>${statusHtml(i)}</td>`; const v=r.rows[i][c], odd=oddValue(COLUMN_KEY[r.header[c]],v);
+      return `<td class="${et.has(c)?'et':''}${odd?' odd':''}" title="${esc(odd?`${fmt(v)} — ${odd}`:fmt(v))}">${esc(fmt(v))}</td>`; }).join('')}</tr>`; }).join('')}</tbody>`;
   $('shown').textContent=idx.length?`${idx.length.toLocaleString('fr-FR')} ligne(s) — ${state.page*PAGE+1} à ${Math.min(idx.length,(state.page+1)*PAGE)}`:'Aucune ligne ne correspond.';
   $('pager').innerHTML=pages>1?`<button data-page="-1" ${state.page?'':'disabled'} aria-label="Page précédente">‹</button><span>${state.page+1} / ${pages}</span><button data-page="1" ${state.page<pages-1?'':'disabled'} aria-label="Page suivante">›</button>`:'';
 }
@@ -151,7 +154,7 @@ function renderEcarts(){
   const colsUsed=[...new Set(r.ecarts.map(e=>e.colonne))].sort();
   sel.innerHTML='<option value="">Toutes les colonnes</option>'+colsUsed.map(c=>`<option ${c===cur?'selected':''}>${esc(c)}</option>`).join('');
   const list=r.ecarts.filter(e=>!sel.value||e.colonne===sel.value);
-  $('ecarts').innerHTML=list.length?`<thead><tr><th>Contrat</th><th>OPE</th><th>Bâtiment</th><th>Colonne</th><th>Tous contrats</th><th>ExtracTerre</th><th>Valeur retenue</th><th>Source</th></tr></thead><tbody>${list.map(e=>`<tr><td>${esc(e.contrat)}</td><td>${esc(e.ope)}</td><td>${esc(e.batiment)}</td><td>${esc(e.colonne)}</td><td class="num v-sf">${esc(fmt(e.salesforce))}</td><td class="num v-et">${esc(fmt(e.extracterre))}</td>
+  $('ecarts').innerHTML=list.length?`<thead><tr><th>Contrat</th><th>OPE</th><th>Bâtiment</th><th>Colonne</th><th>Tous contrats</th><th>ExtracTerre</th><th>Valeur retenue</th><th>Source</th></tr></thead><tbody>${list.map(e=>`<tr><td>${esc(e.contrat)}</td><td>${esc(e.ope)}</td><td>${esc(e.batiment)}</td><td>${esc(e.colonne)}</td><td class="num v-sf${oddValue(COLUMN_KEY[e.colonne],e.salesforce)?' odd':''}" title="${esc(oddValue(COLUMN_KEY[e.colonne],e.salesforce))}">${esc(fmt(e.salesforce))}</td><td class="num v-et${oddValue(COLUMN_KEY[e.colonne],e.extracterre)?' odd':''}" title="${esc(oddValue(COLUMN_KEY[e.colonne],e.extracterre))}">${esc(fmt(e.extracterre))}</td>
     <td><span class="seg" role="group" aria-label="Valeur retenue"><button type="button" data-dec="${esc(e.key)}" data-v="sf" aria-pressed="${e.retenu==='Salesforce'}">Tous contrats</button><button type="button" data-dec="${esc(e.key)}" data-v="et" aria-pressed="${e.retenu==='ExtracTerre'}">ExtracTerre</button></span>${e.decided?'':' <small class="muted">défaut</small>'}</td><td title="${esc(e.source)}">${esc(e.source)}</td></tr>`).join('')}</tbody>`:'<tbody><tr><td class="empty">Aucun écart : ExtracTerre ne contredit aucune valeur déjà présente.</td></tr></tbody>';
 }
 function renderColumns(){
@@ -313,6 +316,7 @@ setupDrop($('dropSf'),$('sfFile'),files=>handleSf(files[0]));
 setupDrop($('dropEt'),$('etFile'),files=>handleEt(files));
 document.addEventListener('click',e=>{
   const t=e.target.closest('button,[data-row],[data-open]'); if(!t) return;
+  if(t.matches('[data-sort]')){ e.stopPropagation(); const col=+t.dataset.sort, dir=t.dataset.dir, same=state.sort.col===col&&state.sort.dir===dir; state.sort=same?{col:null,dir:''}:{col,dir}; state.page=0; renderTable(); return; }
   if(t.matches('[data-rm-sf]')){ state.sf=null; run(); }
   else if(t.matches('[data-rm-et]')){ state.et.splice(+t.dataset.rmEt,1); run(); }
   else if(t.matches('[data-kpi]')){ state.filter=t.dataset.kpi; state.page=0; setTab('table'); renderControl(); }
