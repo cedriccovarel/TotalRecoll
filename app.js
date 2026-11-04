@@ -290,6 +290,35 @@ async function copyForSheets(){
   toast(`${r.rows.length.toLocaleString('fr-FR')} lignes copiées : collez-les en A1 de la feuille OPERATIONS.`,'success');
 }
 
+// Observatoire (onglet qui a ouvert TotalRecoll, même origine) : seules les valeurs écrites par ExtracTerre
+// partent, d'onglet à onglet ; l'Observatoire ne remplit que les cellules vides de son Sheet. Rien n'est stocké.
+function observatoireWindow(){ try{ const w=window.opener; return w&&!w.closed&&w.location.origin===location.origin?w:null; }catch{ return null; } }
+function observatoirePayload(){
+  const r=state.result, ci=r.header.indexOf(CONTRACT_COL), oi=r.header.indexOf(OPE_COL), bi=r.header.indexOf(BUILDING_COL);
+  const buildings=[];
+  r.meta.forEach((m,i)=>{
+    if(m.kind!=='recolle'&&m.kind!=='et'||!m.et?.length) return;
+    const row=r.rows[i], cells={};
+    m.et.forEach(j=>{ if(j===ci||j===oi||j===bi||empty(row[j])) return; const v=row[j]; cells[r.header[j]]=typeof v==='number'||typeof v==='boolean'?v:String(v); });
+    if(Object.keys(cells).length) buildings.push({contract:row[ci]??'',ope:row[oi]??'',building:bi>=0?String(row[bi]??''):'',cells});
+  });
+  return {type:'totalrecoll:operations',v:1,sentAt:new Date().toISOString(),buildings};
+}
+function sendToObservatoire(){
+  const w=observatoireWindow();
+  if(!w){ toast('Ouvre TotalRecoll depuis l’Observatoire (fenêtre Données › Complément TotalRecoll) pour pouvoir l’envoyer.','error'); return; }
+  const p=observatoirePayload();
+  if(!p.buildings.length){ toast('Aucune donnée ExtracTerre recollée à envoyer.','error'); return; }
+  w.postMessage(p,location.origin);
+  toast(`${p.buildings.length.toLocaleString('fr-FR')} bâtiments envoyés à l’Observatoire…`);
+}
+window.addEventListener('message',e=>{
+  if(e.origin!==location.origin||e.source!==observatoireWindow()||e.data?.type!=='newosb:recoll:ack') return;
+  const s=e.data.stats||{}, n=v=>Number(v||0).toLocaleString('fr-FR');
+  if(!e.data.ok){ toast('Observatoire : '+(e.data.error||'complément refusé'),'error'); return; }
+  toast(`Observatoire complété : ${n(s.filledCells)} cellules remplies sur ${n(s.rowsCompleted)} lignes · ${n(s.ecarts)} écarts (Sheet conservé) · ${n(s.unmatchedOperations)} opérations absentes du Sheet.`,'success');
+});
+
 /* ---------- Divers ---------- */
 function toast(msg,kind=''){ const t=document.createElement('div'); t.className='toast '+kind; t.textContent=msg; $('toasts').append(t); setTimeout(()=>t.remove(),6000); }
 function setTab(tab){
@@ -341,6 +370,7 @@ $('allEt').addEventListener('click',()=>bulk('et'));
 $('allSf').addEventListener('click',()=>bulk('sf'));
 $('resetDec').addEventListener('click',()=>{ state.decisions={}; saveDecisions(); run(); });
 $('xlsxBtn').addEventListener('click',exportXlsx);
+$('obsBtn').addEventListener('click',sendToObservatoire);
 $('copyBtn').addEventListener('click',()=>copyForSheets().catch(e=>toast('Copie impossible : '+e.message,'error')));
 $('helpBtn').addEventListener('click',()=>$('help').showModal());
 $('mentions').addEventListener('change',e=>{ const m=e.target.dataset.mention; if(m==null) return; e.target.checked?state.mentionsOff.delete(m):state.mentionsOff.add(m); renderAnru(); });

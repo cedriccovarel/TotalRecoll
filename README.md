@@ -6,6 +6,7 @@ Recolle le tableau « Tous contrats » (Salesforce) avec les données techniques
 - Clés : numéro de contrat (format 0000xxxx) et/ou numéro d’opération (OPE-XXXXXX). Un contrat et une OPE qui désignent deux opérations différentes sont signalés en conflit, jamais fusionnés.
 - Colonnes administratives : Salesforce fait foi. Colonnes techniques : ExtracTerre, sauf option « garder la valeur de Tous contrats » ; chaque écart est listé (onglet « Écarts » de l’export).
 - Contrôle : taux de recollement, lignes à contrôler (conflits, opérations absentes de Tous contrats, découpage en bâtiments à vérifier), écarts tranchés un par un (choix gardés dans ce navigateur), carte des bâtiments géolocalisés par ExtracTerre (fond IGN), correspondance des colonnes, fiche détaillée par ligne.
+- Envoi à l’Observatoire : ouvrir TotalRecoll depuis l’Observatoire (fenêtre Données › Complément TotalRecoll), faire le recollement, puis « Envoyer à l’Observatoire ». Seules les valeurs écrites par ExtracTerre partent, d’onglet à onglet (même origine) ; l’Observatoire ne remplit que les cellules vides de son Sheet OPERATIONS et répond par un bilan (cellules remplies, écarts, opérations absentes). Rien n’est stocké ni envoyé à un serveur.
 - Export : copie pour Google Sheets (coller en A1) ou .xlsx (OPERATIONS, Écarts, À contrôler ; Google Sheets → Fichier → Importer).
 - Tout est traité dans le navigateur ; aucun fichier client n’est envoyé ni versionné.
 
