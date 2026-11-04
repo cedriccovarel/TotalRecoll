@@ -1,11 +1,21 @@
 // Données fictives uniquement.
 import assert from 'node:assert/strict';
-import {recoll,opsFromSession,opsFromBuildingRows,normContract,normOpe,ecartKey,withDh,DH_ZT,DH_ZNT,targetColumn} from './recoll.js';
+import {recoll,opsFromSession,opsFromBuildingRows,normContract,normOpe,ecartKey,withDh,DH_ZT,DH_ZNT,targetColumn,leadContract} from './recoll.js';
 
 assert.equal(normContract(258),'00000258');
 assert.equal(normContract('00004398'),'00004398');
 assert.equal(normContract('OPE-000123'),'');
 assert.equal(normOpe('ope 123'),'OPE-000123');
+// N° de contrat en tête d'un nom d'opération / dossier Box (exports ExtracTerre sans colonne contrat).
+assert.equal(leadContract('00004701 - 26 - VILLE FICTIVE - Résidence'),'00004701');
+assert.equal(leadContract('00004371  00004371 - 27 - VILLE - Fictif'),'00004371');
+assert.equal(leadContract('0000123'),'00000123');
+assert.equal(leadContract('2373 - PARIS - FICTIF'),'');
+assert.equal(leadContract('1271L'),'');
+assert.equal(leadContract('Résidence 00004701'),'');
+{ const ops=opsFromBuildingRows([{'Projet':'00004701 - 26 - VILLE FICTIVE','Bâtiment':'A','Cep':60},{'Projet':'00004701 - 26 - VILLE FICTIVE','Bâtiment':'B','Cep':61}],'fictif.xlsx');
+  assert.equal(ops.length,1); assert.equal(ops[0].contract,'00004701'); assert.equal(ops[0].buildings.length,2); }
+console.log('Contrat lu dans le nom OK');
 
 const header=['Numéro du contrat','Opération: Code interne','Nom de l\'opération','Total logements','Cep projet','Mode constructif'];
 const sf={header,rows:[

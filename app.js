@@ -1,4 +1,4 @@
-import {recoll,opsFromSession,opsFromBuildingRows,CONTRACT_COL,OPE_COL,STATUS_COL,BUILDING_COL,KINDS,TECH_LABELS,targetColumn,empty,anruIndex,ANRU_COL,ANRU_QP_COL,confortOf,oddValue,COLUMN_KEY,sortRowIndexes} from './recoll.js?v=7';
+import {recoll,opsFromSession,opsFromBuildingRows,CONTRACT_COL,OPE_COL,STATUS_COL,BUILDING_COL,KINDS,TECH_LABELS,targetColumn,empty,anruIndex,ANRU_COL,ANRU_QP_COL,confortOf,oddValue,COLUMN_KEY,sortRowIndexes} from './recoll.js?v=8';
 
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -316,7 +316,8 @@ window.addEventListener('message',e=>{
   if(e.origin!==location.origin||e.source!==observatoireWindow()||e.data?.type!=='newosb:recoll:ack') return;
   const s=e.data.stats||{}, n=v=>Number(v||0).toLocaleString('fr-FR');
   if(!e.data.ok){ toast('Observatoire : '+(e.data.error||'complément refusé'),'error'); return; }
-  toast(`Observatoire complété : ${n(s.filledCells)} cellules remplies sur ${n(s.rowsCompleted)} lignes · ${n(s.ecarts)} écarts (Sheet conservé) · ${n(s.unmatchedOperations)} opérations absentes du Sheet.`,'success');
+  const more=[s.addedRows?`${n(s.addedRows)} bâtiments ajoutés aux opérations`:'',s.correctedCells?`${n(s.correctedCells)} valeurs illisibles du Sheet corrigées`:''].filter(Boolean).join(' · ');
+  toast(`Observatoire complété : ${n(s.filledCells)} cellules remplies sur ${n(s.rowsCompleted)} lignes · ${n(s.ecarts)} écarts (Sheet conservé) · ${n(s.unmatchedOperations)} opérations absentes du Sheet${more?' · '+more:''}.`,'success');
 });
 
 /* ---------- Divers ---------- */

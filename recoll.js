@@ -37,6 +37,12 @@ export function normOpe(v){
   return m?'OPE-'+m[1].padStart(6,'0'):'';
 }
 export const empty=v=>v==null||String(v).trim()===''||v==='#N/A';
+// Nom d'opération ou de dossier Box « 0000xxxx - 26 - VILLE - … » : le n° de contrat est en tête (zéros de tête obligatoires).
+export function leadContract(v){
+  const m=String(v??'').match(/^\s*(0{2,}\d{4,6})(?=\s*(?:[-–—_]|\s\d{4,8}\b|$))/);
+  return m?normContract(m[1]):'';
+}
+const contractOf=v=>normContract(v)||leadContract(v);
 function same(a,b){
   const na=Number(String(a).replace(',','.')), nb=Number(String(b).replace(',','.'));
   if(Number.isFinite(na)&&Number.isFinite(nb)) return Math.abs(na-nb)<=1e-6*Math.max(1,Math.abs(na));
@@ -45,8 +51,8 @@ function same(a,b){
 
 // Une opération ExtracTerre : {contract, code, source, buildings:[{libellé:valeur}]}. Les identifiants sont cherchés partout.
 export function etOperation(buildings,ids=[],source=''){
-  const all=[...ids,...buildings.flatMap(b=>[b['Contrat: Numéro du contrat'],b['Code interne'],b['Opération'],b['Projet']])];
-  const contract=all.map(normContract).find(Boolean)||'';
+  const all=[...ids,...buildings.flatMap(b=>[b['Contrat: Numéro du contrat'],b['Code interne'],b['Opération'],b['Projet'],b['Nom opération']])];
+  const contract=all.map(contractOf).find(Boolean)||'';
   const code=all.map(normOpe).find(Boolean)||'';
   return {contract,code,source,buildings:buildings.map(b=>withDh(Object.fromEntries(Object.entries(b).filter(([k,v])=>TECH_SET.has(k)&&!empty(v)))))};
 }
@@ -164,7 +170,7 @@ export function opsFromSession(json,source){
 export function opsFromBuildingRows(rows,source){
   const groups=new Map();
   rows.forEach((r,i)=>{
-    const c=normContract(r['Contrat: Numéro du contrat'])||normContract(r['Projet'])||normContract(r['Opération']);
+    const c=normContract(r['Contrat: Numéro du contrat'])||contractOf(r['Projet'])||contractOf(r['Opération'])||leadContract(r['Nom opération']);
     const o=normOpe(r['Code interne']);
     const key=c||o||'row'+i;
     (groups.get(key)||groups.set(key,[]).get(key)).push(r);
