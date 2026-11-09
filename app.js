@@ -22,6 +22,18 @@ function sheetAoa(ws){
   }
   return out;
 }
+// Session ExtracTerre : seule la tête (« operations ») sert ici. Lue en flux jusqu'à « "projects": [ » : le texte des documents qui
+// suit n'est pas lu (une session de 550 Mo dépasse la taille maximale d'une chaîne de Chrome → « Unexpected end of JSON input »).
+async function readSessionHead(file){
+  const MARK=/"projects":\s*\[\{?\s*$/, reader=file.stream().pipeThrough(new TextDecoderStream()).getReader(); const parts=[]; let tail='';
+  while(true){ const {value,done}=await reader.read(); if(done) break;
+    const chunk=tail+value, cut=chunk.lastIndexOf('\n'); const lines=cut>=0?chunk.slice(0,cut):''; tail=cut>=0?chunk.slice(cut+1):chunk;
+    if(lines){ const ls=lines.split('\n'); const k=ls.findIndex(l=>MARK.test(l));
+      if(k>=0){ parts.push([...ls.slice(0,k),ls[k].replace(/\{\s*$/,'')].join('\n')); try{ reader.cancel(); }catch{} return JSON.parse(parts.join('\n').replace(/^\uFEFF?[^{]*/,'')+']}}'); }
+      parts.push(lines); } }
+  if(tail) parts.push(tail);
+  try{ return JSON.parse(parts.join('\n').replace(/^\uFEFF?[^{]*/,'')); }catch(e){ throw new Error(`Session JSON illisible (${e.message}).`); }
+}
 async function loadSf(file){
   const wb=await readBook(file);
   for(const n of ['OPERATIONS',...wb.SheetNames.filter(n=>n!=='OPERATIONS')].filter(n=>wb.Sheets[n])){
@@ -39,7 +51,7 @@ async function loadSf(file){
   throw new Error(`Aucune feuille de « ${file.name} » ne contient les colonnes « ${CONTRACT_COL} » et « ${OPE_COL} ».`);
 }
 async function loadEt(file){
-  if(/\.json$/i.test(file.name)) return {name:file.name,kind:'Session JSON',ops:opsFromSession(JSON.parse(await file.text()),file.name)};
+  if(/\.json$/i.test(file.name)) return {name:file.name,kind:'Session JSON',ops:opsFromSession(await readSessionHead(file),file.name)};
   const wb=await readBook(file), ws=wb.Sheets['Données par bâtiment'];
   if(!ws) throw new Error(`« ${file.name} » n’a pas de feuille « Données par bâtiment » (export ExtracTerre attendu).`);
   const aoa=sheetAoa(ws), h=aoa[0];
