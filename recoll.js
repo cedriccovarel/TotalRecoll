@@ -101,7 +101,8 @@ export function recoll(sf,etOps,{keepSalesforce=false,decisions={},anru=null}={}
   }
   // Colonnes : celles du tableau, puis les champs ExtracTerre sans équivalent qui ont une valeur.
   const used=new Set(etOps.flatMap(op=>op.buildings.flatMap(Object.keys)));
-  const extra=TECH_LABELS.filter(l=>used.has(l)&&!header.includes(targetColumn(l))&&l!==BUILDING_COL);
+  // Colonnes ajoutées sous leur nom OPERATIONS (« Cep projet », « Cep max »…) : c'est sous ce nom que les valeurs sont écrites.
+  const extra=[...new Set(TECH_LABELS.filter(l=>used.has(l)&&!header.includes(targetColumn(l))&&l!==BUILDING_COL).map(targetColumn))];
   const sfWidth=header.length;
   header.push(BUILDING_COL,...extra,...(anru?[ANRU_COL,ANRU_QP_COL]:[]),STATUS_COL);
   const col=Object.fromEntries(header.map((h,i)=>[h,i]));

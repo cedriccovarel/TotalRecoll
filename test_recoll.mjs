@@ -161,3 +161,13 @@ console.log('Confort d’été (2) OK');
   assert.deepEqual(sortRowIndexes([0,1,2,3],rows,null,''),[0,1,2,3],'sans tri : ordre d’origine');
 }
 console.log('Valeurs étranges et tri OK');
+
+// Export Salesforce brut (aucune colonne technique) : les colonnes ExtracTerre sont ajoutées sous leur nom OPERATIONS
+// (« Cep projet », « Cep max »…) et reçoivent les valeurs (avant : colonnes « Cep », « Cep Ref » ajoutées mais vides).
+{ const sfRaw={header:['Numéro du contrat','Opération: Code interne','Statut'],rows:[['00004794','OPE-000111','En cours']]};
+  const s={format:'extracterre-session',operations:[{title:'Fictive',identity:{contract:'00004794'},rows:[{contract_number:'00004794',building:'Bât A',cep:60,cep_max:80,cepnr:55,cepnr_max:70,bbio:50,bbio_max:70,tic:26,tic_ref:30,cep_cooling:4}]}]};
+  const r=recoll(sfRaw,opsFromSession(s,'s.json')), get=h=>r.rows[0][r.header.indexOf(h)];
+  for(const [h,v] of [['Cep projet',60],['Cep max',80],['Cep,nr projet',55],['Cep,nr max',70],['Bbio projet',50],['Bbio max',70],['TIC projet',26],['TIC ref',30],['Cep refroidissement',4]]) assert.equal(get(h),v,h);
+  assert.ok(!r.header.includes('Cep')&&!r.header.includes('Cep Ref'),'pas de colonne au nom ExtracTerre');
+  assert.ok(r.meta[0].et.includes(r.header.indexOf('Cep max')),'Cep max transmis à l’Observatoire');
+  console.log('Export Salesforce brut : colonnes techniques OK'); }
