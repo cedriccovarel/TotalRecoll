@@ -26,8 +26,15 @@ async function loadSf(file){
   const wb=await readBook(file);
   for(const n of ['OPERATIONS',...wb.SheetNames.filter(n=>n!=='OPERATIONS')].filter(n=>wb.Sheets[n])){
     const aoa=sheetAoa(wb.Sheets[n]);
-    const h=aoa.findIndex((r,i)=>i<5&&r.includes(CONTRACT_COL)&&r.includes(OPE_COL));
-    if(h>=0){ state.sf={header:aoa[h].map(v=>v??''),rows:aoa.slice(h+1)}; state.sfName=file.name; state.sfSheet=n; return; }
+    // Export Salesforce brut : titre, date et filtres au-dessus des en-têtes (ligne 14 environ), colonnes sans en-tête
+    // (A, C ; retirées seulement dans ce cas, la mise en page OPERATIONS reste intacte) et lignes Total / Nombre / mentions légales en bas : en-têtes cherchés sur 30 lignes, le reste écarté.
+    const h=aoa.findIndex((r,i)=>i<30&&r.includes(CONTRACT_COL)&&r.includes(OPE_COL));
+    if(h>=0){ const head=aoa[h].map(v=>String(v??'').trim()), keep=head.map((v,j)=>v||!h?j:-1).filter(j=>j>=0);
+      const ci=head.indexOf(CONTRACT_COL);
+      const footer=r=>{ const c=String(r[ci]??'').trim(); if(/^\d+(?:\.0+)?$/.test(c)) return false;
+        return r.some(v=>/^(?:total|somme|nombre|copyright\b.*|informations confidentielles\b.*)$/i.test(String(v??'').trim())); };
+      const rows=aoa.slice(h+1).filter(r=>!footer(r)).map(r=>keep.map(j=>r[j]??null)).filter(r=>r.some(v=>v!=null&&v!==''));
+      state.sf={header:keep.map(j=>head[j]),rows}; state.sfName=file.name; state.sfSheet=n; return; }
   }
   throw new Error(`Aucune feuille de « ${file.name} » ne contient les colonnes « ${CONTRACT_COL} » et « ${OPE_COL} ».`);
 }
