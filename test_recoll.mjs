@@ -171,3 +171,16 @@ console.log('Valeurs étranges et tri OK');
   assert.ok(!r.header.includes('Cep')&&!r.header.includes('Cep Ref'),'pas de colonne au nom ExtracTerre');
   assert.ok(r.meta[0].et.includes(r.header.indexOf('Cep max')),'Cep max transmis à l’Observatoire');
   console.log('Export Salesforce brut : colonnes techniques OK'); }
+
+// ExtracTerre ≥ 2.34 : fiabilité de chaque valeur transmise (session « reliability », feuille « Fiabilité par bâtiment »).
+{ const {relKey}=await import('./recoll.js');
+  assert.equal(relKey('Sûre'),'sure'); assert.equal(relKey('À vérifier'),'averifier'); assert.equal(relKey('certifiee'),'certifiee'); assert.equal(relKey('x'),'');
+  const sfRaw={header:['Numéro du contrat','Opération: Code interne','Statut'],rows:[['00004794','OPE-000111','En cours']]};
+  const s={format:'extracterre-session',operations:[{title:'Fictive',identity:{contract:'00004794'},rows:[{contract_number:'00004794',building:'Bât A',cep:60,cep_max:80}],reliability:{'Bât A':{cep:'averifier',cep_max:'sure'}}}]};
+  const r=recoll(sfRaw,opsFromSession(s,'s.json')), j=h=>r.header.indexOf(h);
+  assert.equal(r.meta[0].rel[j('Cep projet')],'averifier'); assert.equal(r.meta[0].rel[j('Cep max')],'sure');
+  // Export Excel : feuille de fiabilité alignée ligne à ligne
+  const rows=[{'Contrat: Numéro du contrat':'00004794','Bâtiment':'Bât A','Cep':60,'Cep Ref':80}];
+  const r2=recoll(sfRaw,opsFromBuildingRows(rows,'x.xlsx',[{'Cep':'Probable','Cep Ref':'Certifiée'}]));
+  const j2=h=>r2.header.indexOf(h); assert.equal(r2.meta[0].rel[j2('Cep projet')],'probable'); assert.equal(r2.meta[0].rel[j2('Cep max')],'certifiee');
+  console.log('Fiabilité ExtracTerre transmise OK'); }

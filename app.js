@@ -1,4 +1,4 @@
-import {recoll,opsFromSession,opsFromBuildingRows,CONTRACT_COL,OPE_COL,STATUS_COL,BUILDING_COL,KINDS,TECH_LABELS,targetColumn,empty,anruIndex,ANRU_COL,ANRU_QP_COL,confortOf,oddValue,COLUMN_KEY,sortRowIndexes} from './recoll.js?v=9';
+import {REL_ORDER,REL_LABEL,relKey,recoll,opsFromSession,opsFromBuildingRows,CONTRACT_COL,OPE_COL,STATUS_COL,BUILDING_COL,KINDS,TECH_LABELS,targetColumn,empty,anruIndex,ANRU_COL,ANRU_QP_COL,confortOf,oddValue,COLUMN_KEY,sortRowIndexes} from './recoll.js?v=10';
 
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -55,7 +55,10 @@ async function loadEt(file){
   const wb=await readBook(file), ws=wb.Sheets['Données par bâtiment'];
   if(!ws) throw new Error(`« ${file.name} » n’a pas de feuille « Données par bâtiment » (export ExtracTerre attendu).`);
   const aoa=sheetAoa(ws), h=aoa[0];
-  return {name:file.name,kind:'Export Excel',ops:opsFromBuildingRows(aoa.slice(1).map(r=>Object.fromEntries(h.map((k,i)=>[k,r[i]]))),file.name)};
+  // ExtracTerre ≥ 2.34 : feuille « Fiabilité par bâtiment », même grille (ligne à ligne) avec le niveau de chaque valeur.
+  const wr=wb.Sheets['Fiabilité par bâtiment'], ra=wr?sheetAoa(wr):null, rh=ra?.[0]||[];
+  const relRows=ra?ra.slice(1).map(r=>Object.fromEntries(rh.map((k,i)=>[k,r[i]]).filter(([,v])=>relKey(v)))):[];
+  return {name:file.name,kind:'Export Excel',ops:opsFromBuildingRows(aoa.slice(1).map(r=>Object.fromEntries(h.map((k,i)=>[k,r[i]]))),file.name,relRows)};
 }
 const busy=(on,text='')=>{ $('busy').hidden=!on; $('busyText').textContent=text; };
 const nextFrame=()=>new Promise(r=>requestAnimationFrame(()=>setTimeout(r,0)));
@@ -147,7 +150,8 @@ function renderTable(){
   const sortAttr=c=>state.sort.col===c?` aria-sort="${state.sort.dir==='asc'?'ascending':'descending'}"`:'';
   $('table').innerHTML=`<thead><tr>${cols.map(c=>`<th scope="col"${sortAttr(c)}><span class="th-in">${esc(r.header[c])}${arrows(c)}</span></th>`).join('')}</tr></thead><tbody>${slice.map(i=>{ const et=new Set(r.meta[i].et);
     return `<tr tabindex="0" data-row="${i}">${cols.map(c=>{ if(c===si) return `<td>${statusHtml(i)}</td>`; const v=r.rows[i][c], odd=oddValue(COLUMN_KEY[r.header[c]],v);
-      return `<td class="${et.has(c)?'et':''}${odd?' odd':''}" title="${esc(odd?`${fmt(v)} — ${odd}`:fmt(v))}">${esc(fmt(v))}</td>`; }).join('')}</tr>`; }).join('')}</tbody>`;
+      const rk=et.has(c)?(r.meta[i].rel?.[c]||'inconnue'):'';
+      return `<td class="${et.has(c)?'et':''}${odd?' odd':''}${rk?` rel-${rk}`:''}" title="${esc([odd?`${fmt(v)} — ${odd}`:fmt(v),rk?`Fiabilité ExtracTerre : ${REL_LABEL[rk]||'inconnue (export antérieur à la v2.34)'}`:''].filter(Boolean).join(' · '))}">${esc(fmt(v))}</td>`; }).join('')}</tr>`; }).join('')}</tbody>`;
   $('shown').textContent=idx.length?`${idx.length.toLocaleString('fr-FR')} ligne(s) — ${state.page*PAGE+1} à ${Math.min(idx.length,(state.page+1)*PAGE)}`:'Aucune ligne ne correspond.';
   $('pager').innerHTML=pages>1?`<button data-page="-1" ${state.page?'':'disabled'} aria-label="Page précédente">‹</button><span>${state.page+1} / ${pages}</span><button data-page="1" ${state.page<pages-1?'':'disabled'} aria-label="Page suivante">›</button>`:'';
 }
@@ -312,24 +316,28 @@ async function copyForSheets(){
 // Observatoire (onglet qui a ouvert TotalRecoll, même origine) : seules les valeurs écrites par ExtracTerre
 // partent, d'onglet à onglet ; l'Observatoire ne remplit que les cellules vides de son Sheet. Rien n'est stocké.
 function observatoireWindow(){ try{ const w=window.opener; return w&&!w.closed&&w.location.origin===location.origin?w:null; }catch{ return null; } }
+// v2.34 — seuil de fiabilité des valeurs envoyées (choix mémorisé ; message v1 gardé : l'Observatoire ignore « rel ») : par défaut « Probable » (lecture mesurée juste ≥ 85 %
+// face à Salesforce) ; « Toutes » envoie aussi les valeurs à vérifier et celles des exports antérieurs (fiabilité inconnue).
+function minRel(){ try{ return localStorage.getItem('totalrecoll.minRel')??'probable'; }catch{ return 'probable'; } }
 function observatoirePayload(){
   const r=state.result, ci=r.header.indexOf(CONTRACT_COL), oi=r.header.indexOf(OPE_COL), bi=r.header.indexOf(BUILDING_COL);
-  const buildings=[];
+  const buildings=[]; let skipped=0;
   r.meta.forEach((m,i)=>{
     if(m.kind!=='recolle'&&m.kind!=='et'||!m.et?.length) return;
     const row=r.rows[i], cells={};
-    m.et.forEach(j=>{ if(j===ci||j===oi||j===bi||empty(row[j])) return; const v=row[j]; cells[r.header[j]]=typeof v==='number'||typeof v==='boolean'?v:String(v); });
-    if(Object.keys(cells).length) buildings.push({contract:row[ci]??'',ope:row[oi]??'',building:bi>=0?String(row[bi]??''):'',cells});
+    const rel={}, min=REL_ORDER[minRel()]||0;
+    m.et.forEach(j=>{ if(j===ci||j===oi||j===bi||empty(row[j])) return; const k=m.rel?.[j]||''; if((REL_ORDER[k]||0)<min){ skipped++; return; } const v=row[j]; cells[r.header[j]]=typeof v==='number'||typeof v==='boolean'?v:String(v); if(k) rel[r.header[j]]=k; });
+    if(Object.keys(cells).length) buildings.push({contract:row[ci]??'',ope:row[oi]??'',building:bi>=0?String(row[bi]??''):'',cells,rel});
   });
-  return {type:'totalrecoll:operations',v:1,sentAt:new Date().toISOString(),buildings};
+  return {type:'totalrecoll:operations',v:1,sentAt:new Date().toISOString(),minReliability:minRel(),skipped,buildings};
 }
 function sendToObservatoire(){
   const w=observatoireWindow();
   if(!w){ toast('Ouvre TotalRecoll depuis l’Observatoire (fenêtre Données › Complément TotalRecoll) pour pouvoir l’envoyer.','error'); return; }
   const p=observatoirePayload();
-  if(!p.buildings.length){ toast('Aucune donnée ExtracTerre recollée à envoyer.','error'); return; }
+  if(!p.buildings.length){ toast(p.skipped?`Aucune valeur au niveau de fiabilité choisi : ${p.skipped.toLocaleString('fr-FR')} valeur(s) écartée(s). Choisissez « toutes » pour les envoyer quand même.`:'Aucune donnée ExtracTerre recollée à envoyer.','error'); return; }
   w.postMessage(p,location.origin);
-  toast(`${p.buildings.length.toLocaleString('fr-FR')} bâtiments envoyés à l’Observatoire…`);
+  toast(`${p.buildings.length.toLocaleString('fr-FR')} bâtiments envoyés à l’Observatoire${p.skipped?` · ${p.skipped.toLocaleString('fr-FR')} valeur(s) écartée(s) (fiabilité insuffisante)`:''}…`);
 }
 window.addEventListener('message',e=>{
   if(e.origin!==location.origin||e.source!==observatoireWindow()||e.data?.type!=='newosb:recoll:ack') return;
@@ -391,6 +399,7 @@ $('allSf').addEventListener('click',()=>bulk('sf'));
 $('resetDec').addEventListener('click',()=>{ state.decisions={}; saveDecisions(); run(); });
 $('xlsxBtn').addEventListener('click',exportXlsx);
 $('obsBtn').addEventListener('click',sendToObservatoire);
+{ const sel=$('relMin'); if(sel){ sel.value=minRel(); sel.addEventListener('change',()=>{ try{ localStorage.setItem('totalrecoll.minRel',sel.value); }catch{} }); } }
 $('copyBtn').addEventListener('click',()=>copyForSheets().catch(e=>toast('Copie impossible : '+e.message,'error')));
 $('helpBtn').addEventListener('click',()=>$('help').showModal());
 $('mentions').addEventListener('change',e=>{ const m=e.target.dataset.mention; if(m==null) return; e.target.checked?state.mentionsOff.delete(m):state.mentionsOff.add(m); renderAnru(); });

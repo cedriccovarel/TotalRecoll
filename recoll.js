@@ -50,11 +50,17 @@ function same(a,b){
 }
 
 // Une opération ExtracTerre : {contract, code, source, buildings:[{libellé:valeur}]}. Les identifiants sont cherchés partout.
-export function etOperation(buildings,ids=[],source=''){
+// Fiabilité ExtracTerre ≥ 2.34 (banc de vérité Salesforce) : certifiee > sure > probable > averifier ; '' = inconnue
+// (export plus ancien). Lue dans la session (« reliability ») ou la feuille « Fiabilité par bâtiment » de l'export Excel.
+export const REL_ORDER={certifiee:4,sure:3,probable:2,averifier:1};
+export const REL_LABEL={certifiee:'Certifiée',sure:'Sûre',probable:'Probable',averifier:'À vérifier'};
+export function relKey(v){ const s=String(v??'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z]/g,''); return REL_ORDER[s]?s:''; }
+export function etOperation(buildings,ids=[],source='',rel=[]){
   const all=[...ids,...buildings.flatMap(b=>[b['Contrat: Numéro du contrat'],b['Code interne'],b['Opération'],b['Projet'],b['Nom opération']])];
   const contract=all.map(contractOf).find(Boolean)||'';
   const code=all.map(normOpe).find(Boolean)||'';
-  return {contract,code,source,buildings:buildings.map(b=>withDh(Object.fromEntries(Object.entries(b).filter(([k,v])=>TECH_SET.has(k)&&!empty(v)))))};
+  return {contract,code,source,buildings:buildings.map(b=>withDh(Object.fromEntries(Object.entries(b).filter(([k,v])=>TECH_SET.has(k)&&!empty(v))))),
+    rel:buildings.map((b,i)=>Object.fromEntries(Object.entries(rel[i]||{}).map(([k,v])=>[k,relKey(v)]).filter(([,v])=>v)))};
 }
 // ExtracTerre ≥ 2.11 : DH ZT / DH ZNT. « DH projet » reçoit le plus défavorable des deux ; un DH sans type de zone
 // (exports plus anciens) va en DH ZNT, sauf bâtiment uniquement traversant (DH ZT) — même règle qu'ExtracTerre.
@@ -111,7 +117,7 @@ export function recoll(sf,etOps,{keepSalesforce=false,decisions={},anru=null}={}
   const stats={recolles:0,salesforceSeul:0,etSeul:0,conflits:0,lignes:0,ecarts:0,aVerifier:0,etOperations:unique.size,etBatiments:0,viaContrat:0,viaOpe:0,viaDeux:0};
   const width=header.length;
   // Écrit les valeurs d'un bâtiment ExtracTerre dans la ligne ; renvoie les colonnes remplies par ExtracTerre.
-  const overlay=(row,b,op,rowIndex)=>{
+  const overlay=(row,b,op,rowIndex,rel={},relOut=null)=>{
     const filled=[];
     for(const [label,v] of Object.entries(b)){
       const h=targetColumn(label), j=col[h]; if(j==null) continue;
@@ -121,7 +127,7 @@ export function recoll(sf,etOps,{keepSalesforce=false,decisions={},anru=null}={}
         e.retenu=choice==='sf'?'Salesforce':'ExtracTerre'; e.decided=!!decisions[e.key]; ecarts.push(e);
         if(choice==='sf') continue;
       }
-      row[j]=v; filled.push(j);
+      row[j]=v; filled.push(j); if(relOut) relOut[j]=rel[label]||(label==='DH'?rel[DH_ZNT]||rel[DH_ZT]:'')||'';
     }
     return filled;
   };
@@ -138,17 +144,17 @@ export function recoll(sf,etOps,{keepSalesforce=false,decisions={},anru=null}={}
       const base=sf.rows[g.rows[k===n?i:0]].slice(0,sfWidth); base.length=width;
       const mismatch=k>1&&k!==n;
       if(mismatch) techCols.forEach(h=>{ base[col[h]]=undefined; });
-      const et=overlay(base,b,m.op,rows.length);
+      const rel={}; const et=overlay(base,b,m.op,rows.length,m.op.rel?.[i]||{},rel);
       let st=m.status; if(mismatch){ st+=` — à vérifier : ${k} lignes Salesforce pour ${n} bâtiments`; stats.aVerifier++; }
-      base[col[STATUS_COL]]=st; rows.push(base); meta.push({kind:'recolle',check:mismatch||m.replaced,et,group:g.key,source:m.op.source});
+      base[col[STATUS_COL]]=st; rows.push(base); meta.push({kind:'recolle',check:mismatch||m.replaced,et,rel,group:g.key,source:m.op.source});
     });
     stats.etBatiments+=n;
   }
   for(const {op,kind,status} of orphans){
     kind==='conflit'?stats.conflits++:stats.etSeul++;
-    (op.buildings.length?op.buildings:[{}]).forEach(b=>{
-      const r=new Array(width); r[ci]=op.contract; r[oi]=op.code; const et=overlay(r,b,op,rows.length);
-      r[col[STATUS_COL]]=`${status} — ${op.source}`; rows.push(r); meta.push({kind,check:true,et,group:'',source:op.source});
+    (op.buildings.length?op.buildings:[{}]).forEach((b,bi)=>{
+      const r=new Array(width); r[ci]=op.contract; r[oi]=op.code; const rel={}; const et=overlay(r,b,op,rows.length,op.rel?.[bi]||{},rel);
+      r[col[STATUS_COL]]=`${status} — ${op.source}`; rows.push(r); meta.push({kind,check:true,et,rel,group:'',source:op.source});
     });
     stats.etBatiments+=op.buildings.length;
   }
@@ -165,18 +171,19 @@ export function opsFromSession(json,source){
   if(json?.format!=='extracterre-session'||!Array.isArray(json.operations)) throw new Error('Ce JSON n’est pas une session ExtracTerre.');
   return json.operations.map(o=>etOperation(
     (o.rows||[]).map(r=>({...Object.fromEntries(Object.entries(r).map(([k,v])=>[KEY2LABEL[k]||k,v])),'Contrat: Numéro du contrat':r.contract_number,'Code interne':r.internal_code})),
-    [o.identity?.contract,o.identity?.code,o.title],`${source} › ${o.title||o.identity?.name||'sans titre'}`));
+    [o.identity?.contract,o.identity?.code,o.title],`${source} › ${o.title||o.identity?.name||'sans titre'}`,
+    (o.rows||[]).map(r=>Object.fromEntries(Object.entries(o.reliability?.[r.building]||{}).map(([k,v])=>[KEY2LABEL[k]||k,v])))));
 }
 // Export Excel ExtracTerre (feuille « Données par bâtiment », lignes déjà en libellés) → opérations groupées par contrat/OPE.
-export function opsFromBuildingRows(rows,source){
+export function opsFromBuildingRows(rows,source,relRows=[]){
   const groups=new Map();
   rows.forEach((r,i)=>{
     const c=normContract(r['Contrat: Numéro du contrat'])||contractOf(r['Projet'])||contractOf(r['Opération'])||leadContract(r['Nom opération']);
     const o=normOpe(r['Code interne']);
     const key=c||o||'row'+i;
-    (groups.get(key)||groups.set(key,[]).get(key)).push(r);
+    (groups.get(key)||groups.set(key,[]).get(key)).push(Object.assign(r,{__i:i}));
   });
-  return [...groups.values()].map(b=>etOperation(b,[],`${source} › ${b[0]['Nom opération']||b[0]['Projet']||'sans titre'}`));
+  return [...groups.values()].map(b=>etOperation(b,[],`${source} › ${b[0]['Nom opération']||b[0]['Projet']||'sans titre'}`,b.map(r=>relRows[r.__i]||{})));
 }
 
 // ANRU (NPNRU) : 480 quartiers (intérêt national, arrêté du 29/04/2015 ; intérêt régional, arrêté du 15/01/2019), périmètres QP 2015.

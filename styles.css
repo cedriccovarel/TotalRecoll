@@ -251,3 +251,11 @@ dialog::backdrop{background:rgba(10,3,2,.7)}
 .sort button{border:0;background:none;padding:0 2px;font-size:8px;line-height:9px;color:var(--dust);cursor:pointer;opacity:.55}
 .sort button:hover,.sort button:focus-visible{opacity:1}.sort button[aria-pressed="true"]{opacity:1;color:var(--et-ink)}
 .grid td.odd,.grid tbody tr:hover td.odd{background:#fff3a3;color:#3a3000;box-shadow:inset 0 0 0 1px #e0c341}
+
+/* ExtracTerre ≥ 2.34 — fiabilité de la valeur (liseré gauche) */
+td.rel-certifiee{box-shadow:inset 3px 0 0 #1f7a3a}
+td.rel-sure{box-shadow:inset 3px 0 0 #58a86b}
+td.rel-probable{box-shadow:inset 3px 0 0 #e0a84a}
+td.rel-averifier{box-shadow:inset 3px 0 0 #d4483b}
+td.rel-inconnue{box-shadow:inset 3px 0 0 #b9c0bb}
+.rel-min{display:inline-flex;gap:6px;align-items:center;font-size:13px}
