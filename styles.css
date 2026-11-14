@@ -176,7 +176,7 @@ main{max-width:1640px;margin:0 auto;padding:24px 24px 40px}
 .empty{padding:40px;color:var(--ink-2)}
 
 /* Carte */
-#map,#anruMap{height:62vh;border-radius:3px;border:1px solid var(--line-strong);background:var(--paper)}
+#map,#anruMap,#zoneMap{height:62vh;border-radius:3px;border:1px solid var(--line-strong);background:var(--paper)}
 .leaflet-popup-content{font:13px/1.45 "Chakra Petch",sans-serif}
 
 /* Export : toujours à portée, en bas de l'écran. */
@@ -259,3 +259,21 @@ td.rel-probable{box-shadow:inset 3px 0 0 #e0a84a}
 td.rel-averifier{box-shadow:inset 3px 0 0 #d4483b}
 td.rel-inconnue{box-shadow:inset 3px 0 0 #b9c0bb}
 .rel-min{display:inline-flex;gap:6px;align-items:center;font-size:13px}
+
+/* Confort d'été : carte des zones climatiques + statistiques de la zone choisie */
+.zones{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:12px;align-items:start;margin-bottom:12px}
+#zoneMap{height:56vh}
+.zone-card{border:1px solid var(--line-strong);border-radius:3px;background:var(--surface);padding:12px 14px}
+.zone-card h3{font-family:var(--display);font-size:15px;letter-spacing:.04em;margin-bottom:2px}
+.zone-card .sub{color:var(--ink-3);font-size:12.5px;margin-bottom:10px}
+.zone-card dl{display:grid;grid-template-columns:1fr auto auto;gap:4px 12px;margin:0 0 10px}
+.zone-card dt{color:var(--ink-2)}
+.zone-card dd{margin:0;text-align:right;font-weight:600}
+.zone-card dd small{color:var(--ink-3);font-weight:400}
+.zone-card .hd{color:var(--ink-3);font-size:11.5px;text-transform:uppercase;letter-spacing:.06em}
+.zone-card .btn{width:100%}
+.zone-legend{display:inline-flex;flex-wrap:wrap;gap:10px;margin-left:8px}
+.zone-legend i{display:inline-block;width:12px;height:12px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+.zone-label{background:none;border:0;box-shadow:none;color:#fff;font-weight:700;font-size:12px;text-shadow:0 0 3px #000,0 0 6px #000}
+.zone-label::before{display:none}
+@media (max-width:820px){.zones{grid-template-columns:1fr}#zoneMap{height:46vh}}

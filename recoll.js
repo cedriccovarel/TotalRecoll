@@ -276,3 +276,27 @@ export function sortRowIndexes(idx,rows,col,dir){
     const nx=sortNum(x), ny=sortNum(y); if(nx!==null&&ny!==null) return s*(nx-ny)||a-b;
     return s*String(x).localeCompare(String(y),'fr',{numeric:true,sensitivity:'base'})||a-b; });
 }
+
+// Carte confort d'été : zone climatique RE2020 par département (arrêté du 4 août 2021, mêmes zones que la RT2012).
+export const ZONES=['H1a','H1b','H1c','H2a','H2b','H2c','H2d','H3'];
+const ZONE_DEPS={H1a:'02 14 27 59 60 62 75 76 77 78 80 91 92 93 94 95',H1b:'08 10 45 51 52 54 55 57 58 61 67 68 70 88 89 90',H1c:'01 03 05 15 19 21 23 25 38 39 42 43 63 69 71 73 74 87',H2a:'22 29 35 50 56',H2b:'16 17 18 28 36 37 41 44 49 53 72 79 85 86',H2c:'09 12 24 31 32 33 40 46 47 64 65 81 82',H2d:'04 07 26 48 84',H3:'06 11 13 2A 2B 20 30 34 66 83'};
+const DEP_ZONE=Object.fromEntries(Object.entries(ZONE_DEPS).flatMap(([z,l])=>l.split(' ').map(d=>[d,z])));
+export const zoneOfDep=d=>DEP_ZONE[String(d??'').toUpperCase()]||'';
+// Département d'une ligne : code postal, sinon code INSEE, sinon « 0000xxxx - 62 - … » en tête du nom d'opération. null si inconnu.
+export function depOfRow(get){
+  for(const v of [get('Code postal'),get('Code INSEE')]){ const s=String(v??'').trim(); if(/^(?:2[AB]|\d{2})\d{3}$/i.test(s)) return /^20/.test(s)?'20':s.slice(0,2).toUpperCase(); }
+  for(const v of [get('Département'),get('Departement')]){ const m=String(v??'').match(/^\s*(2[AB]|\d{2})\b/i); if(m) return m[1].toUpperCase(); }
+  const m=String(get("Nom de l'opération")??'').match(/^\s*\d{8}\s*-\s*(2[AB]|\d{2})\s*-/i); return m?m[1].toUpperCase():null;
+}
+const stat=xs=>{ if(!xs.length) return {n:0,mean:null,median:null}; const s=[...xs].sort((a,b)=>a-b), h=s.length>>1;
+  return {n:s.length,mean:Math.round(s.reduce((a,b)=>a+b,0)/s.length*10)/10,median:Math.round((s.length%2?s[h]:(s[h-1]+s[h])/2)*10)/10}; };
+// items : [{op, zone, dhZt, dhZnt, system, fan, clim}] (un par bâtiment). DH : statistiques sur les bâtiments.
+// Brasseur / climatisation : part des opérations (une opération compte « Oui » si un de ses bâtiments l'est ; inconnue si aucun n'est renseigné).
+export function confortStats(items){
+  const share=(list,k)=>{ const ops=new Map(); for(const x of list){ if(!x[k]) continue; ops.set(x.op,ops.get(x.op)==='Oui'||x[k]==='Oui'?'Oui':'Non'); }
+    const yes=[...ops.values()].filter(v=>v==='Oui').length; return {yes,known:ops.size,pct:ops.size?Math.round(yes/ops.size*1000)/10:null}; };
+  const dh=list=>({zt:stat(list.map(x=>x.dhZt).filter(v=>v!=null)),znt:stat(list.map(x=>x.dhZnt).filter(v=>v!=null))});
+  const one=list=>({ops:new Set(list.map(x=>x.op)).size,buildings:list.length,...dh(list),fan:share(list,'fan'),clim:share(list,'clim'),
+    systems:Object.values(SYSTEMS).map(s=>({system:s,...dh(list.filter(x=>x.system===s)),buildings:list.filter(x=>x.system===s).length}))});
+  return {all:one(items),zones:Object.fromEntries(ZONES.map(z=>[z,one(items.filter(x=>x.zone===z))])),unzoned:items.filter(x=>!x.zone).length};
+}

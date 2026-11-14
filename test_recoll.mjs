@@ -184,3 +184,23 @@ console.log('Valeurs étranges et tri OK');
   const r2=recoll(sfRaw,opsFromBuildingRows(rows,'x.xlsx',[{'Cep':'Probable','Cep Ref':'Certifiée'}]));
   const j2=h=>r2.header.indexOf(h); assert.equal(r2.meta[0].rel[j2('Cep projet')],'probable'); assert.equal(r2.meta[0].rel[j2('Cep max')],'certifiee');
   console.log('Fiabilité ExtracTerre transmise OK'); }
+
+{ // Carte confort d'été : zones climatiques et statistiques (données fictives)
+  const {zoneOfDep,depOfRow,confortStats,SYSTEMS,ZONES}=await import('./recoll.js');
+  const fs=await import('node:fs'); const geo=JSON.parse(fs.readFileSync(new URL('./data/zones-climatiques.json',import.meta.url),'utf8'));
+  assert.equal(geo.departements.length,96); assert.ok(geo.departements.every(d=>ZONES.includes(d.zone)&&zoneOfDep(d.code)===d.zone));
+  assert.equal(zoneOfDep('62'),'H1a'); assert.equal(zoneOfDep('33'),'H2c'); assert.equal(zoneOfDep('2B'),'H3'); assert.equal(zoneOfDep('971'),'');
+  assert.equal(depOfRow(k=>({'Code postal':'20090'})[k]),'20'); assert.equal(zoneOfDep('20'),'H3');
+  assert.equal(depOfRow(k=>({'Code postal':'','Nom de l\'opération':'00009999 - 69 - VILLE FICTIVE - TEST'})[k]),'69');
+  assert.equal(depOfRow(k=>({'Nom de l\'opération':'Opération sans département'})[k]),null);
+  const s=confortStats([
+    {op:'A',zone:'H1a',dhZt:400,dhZnt:600,system:SYSTEMS.ite,fan:'Oui',clim:'Non'},
+    {op:'A',zone:'H1a',dhZt:500,dhZnt:null,system:SYSTEMS.ite,fan:'Non',clim:''},
+    {op:'B',zone:'H1a',dhZt:300,dhZnt:null,system:SYSTEMS.bois,fan:'Non',clim:'Oui'},
+    {op:'C',zone:'',dhZt:900,dhZnt:null,system:'',fan:'',clim:''}]);
+  const h=s.zones.H1a;
+  assert.deepEqual([h.ops,h.buildings,h.zt.mean,h.zt.median,h.zt.n,h.znt.n],[2,3,400,400,3,1]);
+  assert.deepEqual(h.fan,{yes:1,known:2,pct:50}); assert.deepEqual(h.clim,{yes:1,known:2,pct:50});
+  assert.equal(h.systems.find(x=>x.system===SYSTEMS.ite).zt.mean,450); assert.equal(s.unzoned,1); assert.equal(s.all.zt.median,450);
+}
+console.log('Carte confort d’été (zones climatiques) OK');

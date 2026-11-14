@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Michroma&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="styles.css?v=10">
+<link rel="stylesheet" href="styles.css?v=11">
 </head>
 <body>
 <header class="top">
@@ -118,9 +118,15 @@
     </div>
 
     <div class="panel" data-panel="confort" hidden>
+      <p class="muted" id="zoneInfo"></p>
+      <div class="zones">
+        <div id="zoneMap" role="region" aria-label="Carte des zones climatiques : cliquer sur une zone pour ses statistiques"></div>
+        <section class="zone-card" id="zoneCard" aria-live="polite"></section>
+      </div>
+      <div class="scroll"><table id="zoneSystems" class="grid"></table></div>
       <div class="tools"><p class="muted grow" id="confortInfo"></p><button class="btn small" id="confortCsv" type="button">Exporter en CSV</button></div>
       <div class="scroll"><table id="confort" class="grid"></table></div>
-      <p class="muted small">Système constructif : ossature bois (dont CLT, bois massif) ; béton ou brique + isolation extérieure si ITE ; + isolation intérieure ou répartie si ITI, monomur ou béton cellulaire. Une structure ou une isolation absente, mixte (ITE et ITI) ou hors de ces catégories reste vide, avec la raison dans « À vérifier ». Brasseur d’air : colonne Oui / Non, sinon le nombre de brasseurs. Climatisation : colonne Climatisation active, sinon le refroidissement après travaux.</p>
+      <p class="muted small">Système constructif : ossature bois (dont CLT, bois massif) ; béton ou brique + isolation extérieure si ITE ; + isolation intérieure ou répartie si ITI, monomur ou béton cellulaire. Une structure ou une isolation absente, mixte (ITE et ITI) ou hors de ces catégories reste vide, avec la raison dans « À vérifier ». Brasseur d’air : colonne Oui / Non, sinon le nombre de brasseurs. Climatisation : colonne Climatisation active, sinon le refroidissement après travaux. Zone climatique : département du code postal, du code INSEE, du nom d’opération ou de la géolocalisation (arrêté du 4 août 2021) ; contours IGN Admin Express, Licence Ouverte. DH : moyenne et médiane sur les bâtiments renseignés ; brasseur d’air et climatisation : part des opérations renseignées (une opération compte si un de ses bâtiments est équipé).</p>
     </div>
 
     <div class="panel" data-panel="columns" hidden>
@@ -166,6 +172,6 @@
 <div id="toasts" aria-live="polite"></div>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script type="module" src="app.js?v=16"></script>
+<script type="module" src="app.js?v=17"></script>
 </body>
 </html>

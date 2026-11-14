@@ -1,11 +1,11 @@
-import {REL_ORDER,REL_LABEL,relKey,recoll,opsFromSession,opsFromBuildingRows,CONTRACT_COL,OPE_COL,STATUS_COL,BUILDING_COL,KINDS,TECH_LABELS,targetColumn,empty,anruIndex,ANRU_COL,ANRU_QP_COL,confortOf,oddValue,COLUMN_KEY,sortRowIndexes} from './recoll.js?v=10';
+import {REL_ORDER,REL_LABEL,relKey,recoll,opsFromSession,opsFromBuildingRows,CONTRACT_COL,OPE_COL,STATUS_COL,BUILDING_COL,KINDS,TECH_LABELS,targetColumn,empty,anruIndex,ANRU_COL,ANRU_QP_COL,confortOf,oddValue,COLUMN_KEY,sortRowIndexes,ZONES,zoneOfDep,depOfRow,confortStats,SYSTEMS} from './recoll.js?v=11';
 
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const fmt=v=>v==null?'':typeof v==='number'?v.toLocaleString('fr-FR',{maximumFractionDigits:6}):String(v);
 const PAGE=100;
 const KEY_COLS=[CONTRACT_COL,OPE_COL,"Nom de l'opération",'Nom de la société: Nom de la société','Référentiel',BUILDING_COL,'Total logements','Nombre de logements','Ville','Latitude','Longitude','Cep projet','Bbio projet','DH projet','IC construction','ANRU'];
-const state={filter:'recolle',sf:null,sfName:'',sfSheet:'',et:[],result:null,decisions:{},page:0,sort:{col:null,dir:''},tab:'table',map:null,mapLayer:null,anru:null,anruMap:null,anruLayer:null,mentionsOff:new Set()};
+const state={filter:'recolle',sf:null,sfName:'',sfSheet:'',et:[],result:null,decisions:{},page:0,sort:{col:null,dir:''},tab:'table',map:null,mapLayer:null,anru:null,anruMap:null,anruLayer:null,mentionsOff:new Set(),zonesGeo:null,zoneMap:null,zone:''};
 try{ state.decisions=JSON.parse(localStorage.getItem('totalrecoll.decisions')||'{}'); }catch{}
 const saveDecisions=()=>{ try{ localStorage.setItem('totalrecoll.decisions',JSON.stringify(state.decisions)); }catch{} };
 
@@ -243,7 +243,53 @@ function confortRows(){
     return {i,cells:[get(CONTRACT_COL),get(OPE_COL),get("Nom de l'opération"),get(BUILDING_COL),c.dhZt,c.dhZnt,c.system,c.fan,c.clim,c.note]}; })
     .filter(x=>x.cells.slice(4).some(v=>!empty(v)));
 }
+/* ---------- Confort d'été : carte des zones climatiques ---------- */
+const ZONE_COLORS={H1a:'#1F5FA8',H1b:'#3B88D0',H1c:'#78B8E8',H2a:'#3FA586',H2b:'#B9A33F',H2c:'#E0912F',H2d:'#E5672A',H3:'#C1440E'};
+// Point dans un département (anneaux [lat,lon], pair-impair) : dernier recours quand ni code postal ni nom d'opération ne donnent le département.
+const inRings=(la,lo,polys)=>polys.some(rings=>rings.reduce((inside,ring)=>{ let c=false; for(let i=0,j=ring.length-1;i<ring.length;j=i++){ const [yi,xi]=ring[i],[yj,xj]=ring[j]; if((yi>la)!==(yj>la)&&lo<(xj-xi)*(la-yi)/(yj-yi)+xi) c=!c; } return c?!inside:inside; },false));
+function zoneItems(){
+  const r=state.result; if(!r) return [];
+  const col=h=>r.header.indexOf(h), lat=col('Latitude'), lon=col('Longitude');
+  return r.rows.map((row,i)=>{ const get=h=>{ const j=col(h); return j<0?undefined:row[j]; }, c=confortOf(get);
+    let dep=depOfRow(get), how=dep?'':'non trouvé';
+    if(!dep&&state.zonesGeo&&lat>=0){ const la=Number(row[lat]), lo=Number(row[lon]); if(la&&lo){ const d=state.zonesGeo.departements.find(d=>inRings(la,lo,d.rings)); if(d){ dep=d.code; how='géolocalisation'; } } }
+    const num=v=>empty(v)?null:Number(v);
+    return {i,op:r.meta[i].group||get(CONTRACT_COL)||'ligne'+i,dep,zone:zoneOfDep(dep),how,dhZt:num(c.dhZt),dhZnt:num(c.dhZnt),system:c.system,fan:c.fan,clim:c.clim}; })
+    .filter(x=>x.dhZt!=null||x.dhZnt!=null||x.system||x.fan||x.clim);
+}
+const fr=v=>v==null?'—':v.toLocaleString('fr-FR',{maximumFractionDigits:1});
+function renderZoneCard(st){
+  const z=state.zone, s=z?st.zones[z]:st.all;
+  const line=(l,x)=>`<dt>${l}</dt><dd>${fr(x.mean)}</dd><dd>${fr(x.median)} <small>(${x.n})</small></dd>`;
+  const pct=(l,x)=>`<dt>${l}</dt><dd>${x.pct==null?'—':fr(x.pct)+' %'}</dd><dd><small>${x.yes} / ${x.known} op.</small></dd>`;
+  $('zoneCard').innerHTML=`<h3>${z?'Zone '+esc(z):'Toutes zones'}</h3><div class="sub">${s.ops} opération(s), ${s.buildings} bâtiment(s)${z?'':` — cliquer sur une zone de la carte`}</div>
+    <dl><dt class="hd">DH (°C.h)</dt><dd class="hd">Moyenne</dd><dd class="hd">Médiane (n)</dd>${line('Zones traversantes',s.zt)}${line('Zones non traversantes',s.znt)}</dl>
+    <dl><dt class="hd">Opérations équipées</dt><dd class="hd">Part</dd><dd class="hd">Oui / renseignées</dd>${pct('Brasseurs d’air',s.fan)}${pct('Climatisation active',s.clim)}</dl>
+    ${z?'<button class="btn quiet small" id="zoneAll" type="button">Voir toutes les zones</button>':''}`;
+  $('zoneSystems').innerHTML=`<caption>DH selon le système constructif — ${z?'zone '+esc(z):'toutes zones'}</caption><thead><tr><th scope="col">Système constructif</th><th scope="col">Bâtiments</th><th scope="col">DH ZT moyenne</th><th scope="col">DH ZT médiane (n)</th><th scope="col">DH ZNT moyenne</th><th scope="col">DH ZNT médiane (n)</th></tr></thead><tbody>${s.systems.map(x=>`<tr><th scope="row">${esc(x.system)}</th><td>${x.buildings}</td><td>${fr(x.zt.mean)}</td><td>${fr(x.zt.median)} (${x.zt.n})</td><td>${fr(x.znt.mean)}</td><td>${fr(x.znt.median)} (${x.znt.n})</td></tr>`).join('')}</tbody>`;
+}
+function renderZones(){
+  const items=zoneItems(), st=confortStats(items), geo=items.filter(x=>x.how==='géolocalisation').length;
+  $('zoneInfo').innerHTML=`${items.length} bâtiment(s) avec une donnée de confort d’été, ${items.length-st.unzoned} placés dans une zone climatique${geo?` (dont ${geo} par la géolocalisation)`:''}${st.unzoned?`, ${st.unzoned} sans département connu (hors carte)`:''}.<span class="zone-legend">${ZONES.map(z=>`<span><i style="background:${ZONE_COLORS[z]}"></i>${z} <b>${st.zones[z].ops}</b></span>`).join('')}</span>`;
+  renderZoneCard(st);
+  if(typeof L==='undefined'||!state.zonesGeo){ if(!state.zonesGeo) $('zoneInfo').append(' (zones climatiques en cours de chargement)'); return; }
+  if(!state.zoneMap){
+    state.zoneMap=L.map('zoneMap',{scrollWheelZoom:true,preferCanvas:true,zoomSnap:.25}).setView([46.6,2.4],5.5);
+    L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/png&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',{maxZoom:12,opacity:.35,attribution:'© IGN — Géoplateforme, Admin Express'}).addTo(state.zoneMap);
+    state.zoneLayers={};
+    for(const d of state.zonesGeo.departements){ const p=L.polygon(d.rings,{color:'#170A07',weight:.6,fillColor:ZONE_COLORS[d.zone],fillOpacity:.6});
+      p.on('click',()=>{ state.zone=state.zone===d.zone?'':d.zone; renderZones(); });
+      p.bindTooltip(`${esc(d.nom)} (${esc(d.code)}) — zone ${esc(d.zone)}`,{sticky:true}); p.addTo(state.zoneMap); (state.zoneLayers[d.zone]??=[]).push(p); }
+  }
+  setTimeout(()=>state.zoneMap.invalidateSize(),0);
+  for(const [z,ps] of Object.entries(state.zoneLayers)) ps.forEach(p=>p.setStyle({fillOpacity:!state.zone||state.zone===z?.6:.15,weight:state.zone===z?1.2:.6}));
+  state.zoneMarks?.remove();
+  state.zoneMarks=L.featureGroup(ZONES.filter(z=>st.zones[z].ops).map(z=>{ const b=L.featureGroup(state.zoneLayers[z]).getBounds().getCenter(), s=st.zones[z];
+    return L.marker(b,{icon:L.divIcon({className:'',html:''}),interactive:false}).bindTooltip(`${z} · ${s.ops} op.<br>DH ZT ${fr(s.zt.median)} · ZNT ${fr(s.znt.median)}`,{permanent:true,direction:'center',className:'zone-label'}); })).addTo(state.zoneMap);
+}
+
 function renderConfort(){
+  renderZones();
   const r=state.result, rows=confortRows(), n=k=>rows.filter(x=>!empty(x.cells[k])).length;
   $('confortInfo').textContent=rows.length?`${rows.length} bâtiment(s) avec au moins une valeur sur ${r.rows.length} ligne(s) : DH ZT ${n(4)}, DH ZNT ${n(5)}, système constructif ${n(6)}, brasseur d’air ${n(7)}, climatisation ${n(8)}, à vérifier ${n(9)}.`:'Aucune de ces valeurs dans les données recollées.';
   $('confort').innerHTML=rows.length?`<thead><tr>${CONFORT_HEAD.map(h=>`<th scope="col">${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(x=>`<tr tabindex="0" data-row="${x.i}">${x.cells.map(v=>`<td title="${esc(fmt(v))}">${esc(fmt(v))}</td>`).join('')}</tr>`).join('')}</tbody>`:'';
@@ -405,8 +451,11 @@ $('helpBtn').addEventListener('click',()=>$('help').showModal());
 $('mentions').addEventListener('change',e=>{ const m=e.target.dataset.mention; if(m==null) return; e.target.checked?state.mentionsOff.delete(m):state.mentionsOff.add(m); renderAnru(); });
 $('anruCsv').addEventListener('click',exportAnruCsv);
 $('confortCsv').addEventListener('click',exportConfortCsv);
+$('zoneCard').addEventListener('click',e=>{ if(e.target.id==='zoneAll'){ state.zone=''; renderZones(); } });
 $('mentionsAll').addEventListener('click',()=>{ state.mentionsOff.clear(); renderAnru(); });
 $('mentionsNone').addEventListener('click',()=>{ anruRows().forEach(p=>p.mentions.forEach(m=>state.mentionsOff.add(m))); renderAnru(); });
+fetch('data/zones-climatiques.json').then(r=>r.ok?r.json():Promise.reject(new Error(`HTTP ${r.status}`))).then(d=>{ state.zonesGeo=d; if(state.tab==='confort') renderConfort(); })
+  .catch(e=>toast(`Zones climatiques non chargées (${e.message}) : carte du confort d’été indisponible.`,'error'));
 fetch('data/npnru.json').then(r=>r.ok?r.json():Promise.reject(new Error(`HTTP ${r.status}`))).then(d=>{ state.anru=anruIndex(d); if(state.sf&&state.et.length) run(); })
   .catch(e=>toast(`Quartiers ANRU non chargés (${e.message}) : la colonne ANRU ne sera pas remplie.`,'error'));
 renderSteps();
