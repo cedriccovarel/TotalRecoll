@@ -1,4 +1,4 @@
-import {REL_ORDER,REL_LABEL,relKey,recoll,opsFromSession,opsFromBuildingRows,CONTRACT_COL,OPE_COL,STATUS_COL,BUILDING_COL,KINDS,TECH_LABELS,targetColumn,empty,anruIndex,ANRU_COL,ANRU_QP_COL,confortOf,oddValue,COLUMN_KEY,sortRowIndexes,ZONES,zoneOfDep,depOfRow,confortStats,SYSTEMS} from './recoll.js?v=11';
+import {REL_ORDER,REL_LABEL,relKey,recoll,opsFromSession,opsFromBuildingRows,CONTRACT_COL,OPE_COL,STATUS_COL,BUILDING_COL,KINDS,TECH_LABELS,targetColumn,empty,anruIndex,ANRU_COL,ANRU_QP_COL,confortOf,oddValue,COLUMN_KEY,sortRowIndexes,ZONES,zoneOfDep,depOfRow,confortStats,SYSTEMS,DH_ZT,DH_ZNT} from './recoll.js?v=12';
 
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -150,10 +150,16 @@ function renderTable(){
   const sortAttr=c=>state.sort.col===c?` aria-sort="${state.sort.dir==='asc'?'ascending':'descending'}"`:'';
   $('table').innerHTML=`<thead><tr>${cols.map(c=>`<th scope="col"${sortAttr(c)}><span class="th-in">${esc(r.header[c])}${arrows(c)}</span></th>`).join('')}</tr></thead><tbody>${slice.map(i=>{ const et=new Set(r.meta[i].et);
     return `<tr tabindex="0" data-row="${i}">${cols.map(c=>{ if(c===si) return `<td>${statusHtml(i)}</td>`; const v=r.rows[i][c], odd=oddValue(COLUMN_KEY[r.header[c]],v);
-      const rk=et.has(c)?(r.meta[i].rel?.[c]||'inconnue'):'';
-      return `<td class="${et.has(c)?'et':''}${odd?' odd':''}${rk?` rel-${rk}`:''}" title="${esc([odd?`${fmt(v)} — ${odd}`:fmt(v),rk?`Fiabilité ExtracTerre : ${REL_LABEL[rk]||'inconnue (export antérieur à la v2.34)'}`:''].filter(Boolean).join(' · '))}">${esc(fmt(v))}</td>`; }).join('')}</tr>`; }).join('')}</tbody>`;
+      const rk=et.has(c)?(r.meta[i].rel?.[c]||'inconnue'):'', ec=ecartTip(i,r.header[c]);
+      return `<td class="${et.has(c)?'et':''}${odd?' odd':''}${rk?` rel-${rk}`:''}${ec?' sfdiff':''}" title="${esc([odd?`${fmt(v)} — ${odd}`:fmt(v),ec,rk?`Fiabilité ExtracTerre : ${REL_LABEL[rk]||'inconnue (export antérieur à la v2.34)'}`:''].filter(Boolean).join('\n'))}">${esc(fmt(v))}</td>`; }).join('')}</tr>`; }).join('')}</tbody>`;
   $('shown').textContent=idx.length?`${idx.length.toLocaleString('fr-FR')} ligne(s) — ${state.page*PAGE+1} à ${Math.min(idx.length,(state.page+1)*PAGE)}`:'Aucune ligne ne correspond.';
   $('pager').innerHTML=pages>1?`<button data-page="-1" ${state.page?'':'disabled'} aria-label="Page précédente">‹</button><span>${state.page+1} / ${pages}</span><button data-page="1" ${state.page<pages-1?'':'disabled'} aria-label="Page suivante">›</button>`:'';
+}
+// Valeur différente entre Tous contrats (Salesforce) et ExtracTerre (document le plus récent) : toujours rappelée au survol.
+function ecartTip(i,colName){
+  const r=state.result; if(!r) return ''; if(!r.ecartIndex){ r.ecartIndex=new Map(); for(const e of r.ecarts) r.ecartIndex.set(e.rowIndex+'|'+e.colonne,e); }
+  const e=r.ecartIndex.get(i+'|'+colName); if(!e) return '';
+  return `Salesforce (Tous contrats) : ${fmt(e.salesforce)}\nExtracTerre (document le plus récent) : ${fmt(e.extracterre)}\nRetenu : ${e.retenu}`;
 }
 function rowLabel(i){
   const r=state.result, row=r.rows[i], h=n=>row[r.header.indexOf(n)];
@@ -292,7 +298,8 @@ function renderConfort(){
   renderZones();
   const r=state.result, rows=confortRows(), n=k=>rows.filter(x=>!empty(x.cells[k])).length;
   $('confortInfo').textContent=rows.length?`${rows.length} bâtiment(s) avec au moins une valeur sur ${r.rows.length} ligne(s) : DH ZT ${n(4)}, DH ZNT ${n(5)}, système constructif ${n(6)}, brasseur d’air ${n(7)}, climatisation ${n(8)}, à vérifier ${n(9)}.`:'Aucune de ces valeurs dans les données recollées.';
-  $('confort').innerHTML=rows.length?`<thead><tr>${CONFORT_HEAD.map(h=>`<th scope="col">${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(x=>`<tr tabindex="0" data-row="${x.i}">${x.cells.map(v=>`<td title="${esc(fmt(v))}">${esc(fmt(v))}</td>`).join('')}</tr>`).join('')}</tbody>`:'';
+  const dhCol={4:DH_ZT,5:DH_ZNT};
+  $('confort').innerHTML=rows.length?`<thead><tr>${CONFORT_HEAD.map(h=>`<th scope="col">${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(x=>`<tr tabindex="0" data-row="${x.i}">${x.cells.map((v,k)=>{ const ec=dhCol[k]?ecartTip(x.i,dhCol[k]):''; return `<td${ec?' class="sfdiff"':''} title="${esc([fmt(v),ec].filter(Boolean).join('\n'))}">${esc(fmt(v))}</td>`; }).join('')}</tr>`).join('')}</tbody>`:'';
 }
 function exportConfortCsv(){
   const rows=confortRows(); if(!rows.length){ toast('Aucune valeur de confort d’été à exporter.','error'); return; }

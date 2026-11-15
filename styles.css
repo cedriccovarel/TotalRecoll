@@ -277,3 +277,8 @@ td.rel-inconnue{box-shadow:inset 3px 0 0 #b9c0bb}
 .zone-label{background:none;border:0;box-shadow:none;color:#fff;font-weight:700;font-size:12px;text-shadow:0 0 3px #000,0 0 6px #000}
 .zone-label::before{display:none}
 @media (max-width:820px){.zones{grid-template-columns:1fr}#zoneMap{height:46vh}}
+
+/* Valeur différente de Tous contrats (Salesforce) : coin marqué, détail au survol. */
+td.sfdiff{position:relative}
+td.sfdiff::after{content:"";position:absolute;top:0;right:0;border-style:solid;border-width:0 7px 7px 0;border-color:transparent var(--sf) transparent transparent}
+.sw-diff{background:linear-gradient(225deg,var(--sf) 0 35%,transparent 35%)!important;border:1px solid var(--line-strong)}
