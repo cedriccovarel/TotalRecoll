@@ -302,3 +302,14 @@ export function confortStats(items){
     systems:Object.values(SYSTEMS).map(s=>({system:s,...dh(list.filter(x=>x.system===s)),buildings:list.filter(x=>x.system===s).length}))});
   return {all:one(items),zones:Object.fromEntries(ZONES.map(z=>[z,one(items.filter(x=>x.zone===z))])),unzoned:items.filter(x=>!x.zone).length};
 }
+
+// Tableau publié dans l'onglet OPERATIONS de l'Observatoire (voir app.js « Publication »).
+export function publishTable(r,minLevel){
+  const min=REL_ORDER[minLevel]||0, keep=new Set([r.header.indexOf(CONTRACT_COL),r.header.indexOf(OPE_COL),r.header.indexOf(BUILDING_COL)]);
+  const restore=new Map(r.ecarts.filter(e=>e.retenu==='ExtracTerre').map(e=>[`${e.rowIndex}|${e.colonne}`,e.salesforce]));
+  let skipped=0;
+  const rows=r.rows.map((row,i)=>{ const out=Array.from({length:r.header.length},(_,j)=>{ const v=row[j]; return v===undefined||v===null?'':typeof v==='number'?v:String(v); });
+    const m=r.meta[i]; (m?.et||[]).forEach(j=>{ if(keep.has(j)||(REL_ORDER[m.rel?.[j]||'']||0)>=min) return; const k=`${i}|${r.header[j]}`; out[j]=restore.has(k)?String(restore.get(k)??''):''; skipped++; });
+    return out; });
+  return {header:r.header.map(h=>String(h??'')),rows,skipped};
+}

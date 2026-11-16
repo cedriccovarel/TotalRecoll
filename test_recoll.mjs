@@ -209,3 +209,17 @@ console.log('Valeurs étranges et tri OK');
   assert.equal(h.systems.find(x=>x.system===SYSTEMS.ite).zt.mean,450); assert.equal(s.unzoned,1); assert.equal(s.all.zt.median,450);
 }
 console.log('Carte confort d’été (zones climatiques) OK');
+
+// Publication dans l'onglet OPERATIONS de l'Observatoire : fiabilité appliquée, valeur Salesforce remise si ExtracTerre l'avait remplacée.
+{
+  const {publishTable,CONTRACT_COL,OPE_COL,BUILDING_COL}=await import('./recoll.js');
+  const header=[CONTRACT_COL,OPE_COL,'Ville','Bbio projet','Cep projet',BUILDING_COL,'Recollement'];
+  const r={header,rows:[['00001234','OPE-000001','Lille',41,undefined,'Bât A','Recollé']],
+    meta:[{kind:'recolle',et:[2,3,4,5],rel:{2:'sure',3:'averifier',4:'probable'}}],
+    ecarts:[{rowIndex:0,colonne:'Bbio projet',salesforce:'39',retenu:'ExtracTerre'}]};
+  const t=publishTable(r,'probable');
+  assert.deepEqual(t.rows[0],['00001234','OPE-000001','Lille','39','','Bât A','Recollé']); // Bbio « à vérifier » → valeur Salesforce ; Cep vide → ''
+  assert.equal(t.skipped,1);
+  assert.deepEqual(publishTable(r,'').rows[0].slice(2,5),['Lille',41,'']);
+  console.log('Publication OPERATIONS OK');
+}

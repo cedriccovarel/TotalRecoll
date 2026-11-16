@@ -1,4 +1,4 @@
-import {REL_ORDER,REL_LABEL,relKey,recoll,opsFromSession,opsFromBuildingRows,CONTRACT_COL,OPE_COL,STATUS_COL,BUILDING_COL,KINDS,TECH_LABELS,targetColumn,empty,anruIndex,ANRU_COL,ANRU_QP_COL,confortOf,oddValue,COLUMN_KEY,sortRowIndexes,ZONES,zoneOfDep,depOfRow,confortStats,SYSTEMS,DH_ZT,DH_ZNT} from './recoll.js?v=14';
+import {REL_ORDER,REL_LABEL,relKey,recoll,opsFromSession,opsFromBuildingRows,CONTRACT_COL,OPE_COL,STATUS_COL,BUILDING_COL,KINDS,TECH_LABELS,targetColumn,empty,anruIndex,ANRU_COL,ANRU_QP_COL,confortOf,oddValue,COLUMN_KEY,sortRowIndexes,ZONES,zoneOfDep,depOfRow,confortStats,SYSTEMS,DH_ZT,DH_ZNT,publishTable} from './recoll.js?v=15';
 
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -400,6 +400,55 @@ window.addEventListener('message',e=>{
   const more=[s.addedRows?`${n(s.addedRows)} bâtiments ajoutés aux opérations`:'',s.correctedCells?`${n(s.correctedCells)} valeurs illisibles du Sheet corrigées`:''].filter(Boolean).join(' · ');
   toast(`Observatoire complété : ${n(s.filledCells)} cellules remplies sur ${n(s.rowsCompleted)} lignes · ${n(s.ecarts)} écarts (Sheet conservé) · ${n(s.unmatchedOperations)} opérations absentes du Sheet${more?' · '+more:''}.`,'success');
 });
+
+/* ---------- Publication dans le Google Sheet de l'Observatoire (script OPERATIONS ≥ 06.47) ---------- */
+// Le tableau recollé remplace l'onglet OPERATIONS (le script le sauvegarde d'abord). Mêmes règles de fiabilité que
+// « Envoyer à l'Observatoire » : une valeur ExtracTerre sous le niveau choisi n'est pas publiée (la valeur Salesforce
+// d'origine est remise si ExtracTerre l'avait remplacée). La clé reste en mémoire de l'onglet, jamais enregistrée.
+const OBS_SOURCE_KEY='prestaterre-v29-connected-source', PUB_CHUNK=300;
+let pubBridge=null, pubPopup=false, pubStage='';
+function openPublish(){
+  const r=state.result; if(!r){ toast('Charge d’abord Tous contrats.','error'); return; }
+  let url=''; try{ url=JSON.parse(localStorage.getItem(OBS_SOURCE_KEY)||'null')?.url||''; }catch{}
+  if(!$('pubUrl').value) $('pubUrl').value=url;
+  const t=publishTable(r,minRel()), ops=new Set(r.rows.map(x=>x[r.header.indexOf(CONTRACT_COL)]||x[r.header.indexOf(OPE_COL)])).size;
+  $('pubSummary').textContent=`${t.rows.length.toLocaleString('fr-FR')} lignes (${ops.toLocaleString('fr-FR')} opérations) × ${t.header.length} colonnes. Valeurs ExtracTerre publiées : ${$('relMin').selectedOptions[0]?.textContent||'toutes'}${t.skipped?` (${t.skipped.toLocaleString('fr-FR')} valeur(s) écartée(s))`:''}.`;
+  setPub(''); $('pubGo').disabled=false; $('pubDlg').showModal(); ($('pubUrl').value?$('pubKey'):$('pubUrl')).focus();
+}
+function setPub(msg,kind=''){ const s=$('pubStatus'); s.textContent=msg; s.className=kind; }
+async function runPublish(e){
+  e.preventDefault();
+  const url=$('pubUrl').value.trim(), key=$('pubKey').value.trim();
+  if(!/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec/.test(url)){ setPub('Adresse du script invalide : elle se termine par /exec.','err'); return; }
+  if(key.length<16){ setPub('Clé d’accès trop courte.','err'); return; }
+  if(!window.NEWOSB_BRIDGE){ setPub('Pont Apps Script non chargé : recharge la page.','err'); return; }
+  const t=publishTable(state.result,minRel());
+  if(!confirm(`Remplacer l’onglet OPERATIONS par ${t.rows.length.toLocaleString('fr-FR')} lignes ? Son contenu actuel est sauvegardé dans OPERATIONS_SAUVEGARDE.`)) return;
+  $('pubGo').disabled=true;
+  pubBridge=pubBridge||window.NEWOSB_BRIDGE.create('totalrecoll-publication'); pubBridge.setKey(key);
+  try{
+    // Fenêtre Google ouverte pendant le clic si l'iframe a déjà échoué (autorisation Google à valider).
+    if(pubPopup) pubBridge.preparePopup(url);
+    pubStage='begin'; setPub('Connexion au script…');
+    const b=await pubBridge.request(url,{mode:'publishbegin',headers:t.header,total:t.rows.length},120000);
+    for(let o=0;o<t.rows.length;o+=PUB_CHUNK){
+      setPub(`Envoi des lignes ${(o+1).toLocaleString('fr-FR')} à ${Math.min(o+PUB_CHUNK,t.rows.length).toLocaleString('fr-FR')} sur ${t.rows.length.toLocaleString('fr-FR')}…`);
+      await pubBridge.request(url,{mode:'publishchunk',id:b.id,offset:o,rows:t.rows.slice(o,o+PUB_CHUNK)},180000);
+    }
+    pubStage='commit'; setPub('Remplacement de l’onglet OPERATIONS (sauvegarde de l’ancien contenu)…');
+    const c=await pubBridge.request(url,{mode:'publishcommit',id:b.id},360000);
+    setPub(`Publié : ${Number(c.rows).toLocaleString('fr-FR')} lignes × ${c.columns} colonnes. Ancien contenu (${Number(c.backupRows).toLocaleString('fr-FR')} lignes) dans ${c.backupSheet}. Recharge l’Observatoire pour voir les nouvelles données.`,'ok');
+    toast('Observatoire publié.','success'); pubPopup=false;
+  }catch(err){
+    const auth=err&&err.authError;
+    if(!auth&&!pubPopup&&/ne répond pas|indisponible/i.test(String(err?.message||''))){ pubPopup=true; setPub('Le script ne répond pas dans la page : clique à nouveau sur « Publier », une fenêtre Google s’ouvrira (valide l’autorisation si Google la demande).','err'); }
+    else setPub((auth?'Accès refusé : ':'Publication interrompue : ')+(err?.message||err)+(auth?'':pubStage==='commit'?' — vérifie l’onglet OPERATIONS : son ancien contenu est dans OPERATIONS_SAUVEGARDE.':' — OPERATIONS n’a pas été modifié.'),'err');
+    if(auth){ pubBridge.clearKey(); $('pubKey').value=''; }
+  }finally{ $('pubGo').disabled=false; try{ pubBridge.closePopupSoon(800); }catch{} }
+}
+$('pubBtn').addEventListener('click',openPublish);
+$('pubForm').addEventListener('submit',runPublish);
+$('pubCancel').addEventListener('click',()=>$('pubDlg').close());
 
 /* ---------- Divers ---------- */
 function toast(msg,kind=''){ const t=document.createElement('div'); t.className='toast '+kind; t.textContent=msg; $('toasts').append(t); setTimeout(()=>t.remove(),6000); }

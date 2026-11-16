@@ -146,7 +146,8 @@
     </div>
   </details>
   <label class="rel-min" title="Fiabilité mesurée par ExtracTerre face aux valeurs Salesforce certifiées">Envoyer les valeurs <select id="relMin"><option value="sure">sûres et certifiées</option><option value="probable">probables, sûres et certifiées</option><option value="">toutes (y compris à vérifier)</option></select></label>
-  <button class="btn" id="obsBtn" type="button" title="Complète l’Observatoire ouvert dans l’autre onglet, sans rien enregistrer">Envoyer à l’Observatoire</button>
+  <button class="btn" id="pubBtn" type="button" title="Remplace l’onglet OPERATIONS du Google Sheet de l’Observatoire par ce tableau (ancien contenu sauvegardé)">Publier dans l’Observatoire</button>
+  <button class="btn quiet" id="obsBtn" type="button" title="Complète l’Observatoire ouvert dans l’autre onglet, sans rien enregistrer">Envoyer à l’Observatoire</button>
   <button class="btn quiet" id="copyBtn" type="button">Copier pour Google Sheets</button>
   <button class="btn quiet" id="xlsxBtn" type="button">Télécharger le .xlsx</button>
 </section>
@@ -164,14 +165,29 @@
     <li><b>Colonnes.</b> Les données techniques et la localisation viennent d’ExtracTerre ; les colonnes administratives restent celles de Salesforce.</li>
     <li><b>Écarts.</b> Quand Tous contrats contient déjà une autre valeur, le choix par défaut s’applique ; chaque écart peut être tranché un par un.</li>
     <li><b>ANRU.</b> Un bâtiment géolocalisé dans l’un des 480 quartiers du NPNRU (intérêt national et régional) (ou à 10 m au plus de son périmètre) est « Oui ». Sans coordonnées, la commune décide : « Non » si elle n’a aucun quartier NPNRU, case vide à vérifier sinon.</li>
-    <li><b>Confidentialité.</b> Tout est calculé dans ce navigateur. Seule la carte charge des fonds de plan IGN.</li>
+    <li><b>Publier dans l’Observatoire.</b> Remplace l’onglet OPERATIONS du Google Sheet par ce tableau, avec la clé de l’Observatoire (ancien contenu sauvegardé dans l’onglet masqué OPERATIONS_SAUVEGARDE). Les valeurs ExtracTerre sous le niveau de fiabilité choisi ne sont pas publiées. Les liens partagés lisent ensuite ces données.</li>
+    <li><b>Confidentialité.</b> Tout est calculé dans ce navigateur. Seule la carte charge des fonds de plan IGN ; la publication envoie le tableau au seul script Google de l’Observatoire.</li>
   </ul>
   <form method="dialog"><button class="btn">Fermer</button></form>
+</dialog>
+
+<dialog id="pubDlg" aria-labelledby="pubTitle">
+  <form id="pubForm" method="dialog" autocomplete="off">
+    <h3 id="pubTitle">Publier dans l’Observatoire</h3>
+    <p id="pubSummary"></p>
+    <p class="muted">L’onglet <b>OPERATIONS</b> du Google Sheet est remplacé par ce tableau. Son contenu actuel est d’abord copié dans l’onglet masqué <b>OPERATIONS_SAUVEGARDE</b>. Les liens partagés lisent ensuite ces nouvelles données. Si la publication s’interrompt, OPERATIONS n’est pas modifié.</p>
+    <label class="field">Adresse du script (…/exec)<input id="pubUrl" type="url" required spellcheck="false" placeholder="https://script.google.com/macros/s/…/exec"></label>
+    <label class="field">Clé d’accès de l’Observatoire<input id="pubKey" type="password" required minlength="16" spellcheck="false" autocomplete="off"></label>
+    <p class="muted small">La clé reste dans la mémoire de cet onglet et n’est envoyée qu’au script Google, par le pont sécurisé.</p>
+    <p id="pubStatus" role="status" aria-live="polite"></p>
+    <div class="row"><button class="btn quiet" type="button" id="pubCancel">Fermer</button><button class="btn" type="submit" id="pubGo">Publier</button></div>
+  </form>
 </dialog>
 
 <div id="toasts" aria-live="polite"></div>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script type="module" src="app.js?v=20"></script>
+<script src="newosb-bridge.js?v=6.66.0"></script>
+<script type="module" src="app.js?v=21"></script>
 </body>
 </html>

@@ -282,3 +282,11 @@ td.rel-inconnue{box-shadow:inset 3px 0 0 #b9c0bb}
 td.sfdiff{position:relative}
 td.sfdiff::after{content:"";position:absolute;top:0;right:0;border-style:solid;border-width:0 7px 7px 0;border-color:transparent var(--sf) transparent transparent}
 .sw-diff{background:linear-gradient(225deg,var(--sf) 0 35%,transparent 35%)!important;border:1px solid var(--line-strong)}
+/* Publication vers le Google Sheet de l'Observatoire */
+#pubDlg .field{display:block;margin:12px 0 4px;font-size:13px;font-weight:600}
+#pubDlg .field input{display:block;width:100%;margin-top:4px;padding:8px 10px;border:1px solid var(--line-strong);border-radius:6px;background:var(--surface);color:var(--ink);font:inherit}
+#pubDlg .row{display:flex;justify-content:flex-end;gap:10px;margin-top:16px}
+#pubDlg .small{font-size:12px}
+#pubStatus{min-height:1.4em;font-weight:600}
+#pubStatus.err{color:#b0413e}
+#pubStatus.ok{color:#22825a}
