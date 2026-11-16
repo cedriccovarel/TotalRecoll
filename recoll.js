@@ -291,10 +291,12 @@ export function depOfRow(get){
 const stat=xs=>{ if(!xs.length) return {n:0,mean:null,median:null}; const s=[...xs].sort((a,b)=>a-b), h=s.length>>1;
   return {n:s.length,mean:Math.round(s.reduce((a,b)=>a+b,0)/s.length*10)/10,median:Math.round((s.length%2?s[h]:(s[h-1]+s[h])/2)*10)/10}; };
 // items : [{op, zone, dhZt, dhZnt, system, fan, clim}] (un par bâtiment). DH : statistiques sur les bâtiments.
-// Brasseur / climatisation : part des opérations (une opération compte « Oui » si un de ses bâtiments l'est ; inconnue si aucun n'est renseigné).
+// Brasseur / climatisation : part de toutes les opérations de la zone (une opération compte « Oui » si un de ses bâtiments l'est ;
+// « Non » lu ou absence de mention comptent comme « Non »).
 export function confortStats(items){
   const share=(list,k)=>{ const ops=new Map(); for(const x of list){ if(!x[k]) continue; ops.set(x.op,ops.get(x.op)==='Oui'||x[k]==='Oui'?'Oui':'Non'); }
-    const yes=[...ops.values()].filter(v=>v==='Oui').length; return {yes,known:ops.size,pct:ops.size?Math.round(yes/ops.size*1000)/10:null}; };
+    const yes=[...ops.values()].filter(v=>v==='Oui').length, total=new Set(list.map(x=>x.op)).size;
+    return {yes,known:ops.size,total,pct:total?Math.round(yes/total*1000)/10:null}; };
   const dh=list=>({zt:stat(list.map(x=>x.dhZt).filter(v=>v!=null)),znt:stat(list.map(x=>x.dhZnt).filter(v=>v!=null))});
   const one=list=>({ops:new Set(list.map(x=>x.op)).size,buildings:list.length,...dh(list),fan:share(list,'fan'),clim:share(list,'clim'),
     systems:Object.values(SYSTEMS).map(s=>({system:s,...dh(list.filter(x=>x.system===s)),buildings:list.filter(x=>x.system===s).length}))});

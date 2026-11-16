@@ -200,7 +200,12 @@ console.log('Valeurs étranges et tri OK');
     {op:'C',zone:'',dhZt:900,dhZnt:null,system:'',fan:'',clim:''}]);
   const h=s.zones.H1a;
   assert.deepEqual([h.ops,h.buildings,h.zt.mean,h.zt.median,h.zt.n,h.znt.n],[2,3,400,400,3,1]);
-  assert.deepEqual(h.fan,{yes:1,known:2,pct:50}); assert.deepEqual(h.clim,{yes:1,known:2,pct:50});
+  assert.deepEqual(h.fan,{yes:1,known:2,total:2,pct:50}); assert.deepEqual(h.clim,{yes:1,known:2,total:2,pct:50});
+  { const t=confortStats([{op:'A',zone:'H3',fan:'Oui',clim:''},{op:'B',zone:'H3',fan:'',clim:'Non'},{op:'C',zone:'H3',dhZt:500,fan:'',clim:''}]).zones.H3;
+    assert.deepEqual(t.fan,{yes:1,known:1,total:3,pct:33.3}); assert.deepEqual(t.clim,{yes:0,known:1,total:3,pct:0});
+    // Climatisation aussi sur toutes les opérations : 1 « Oui » sur 4 (un « Non » lu, deux sans mention).
+    const u=confortStats([{op:'A',zone:'H3',clim:'Oui'},{op:'B',zone:'H3',clim:''},{op:'C',zone:'H3',dhZt:400,clim:''},{op:'D',zone:'H3',clim:'Non'}]).zones.H3;
+    assert.deepEqual(u.clim,{yes:1,known:2,total:4,pct:25}); }
   assert.equal(h.systems.find(x=>x.system===SYSTEMS.ite).zt.mean,450); assert.equal(s.unzoned,1); assert.equal(s.all.zt.median,450);
 }
 console.log('Carte confort d’été (zones climatiques) OK');

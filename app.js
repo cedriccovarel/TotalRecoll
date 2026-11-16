@@ -1,4 +1,4 @@
-import {REL_ORDER,REL_LABEL,relKey,recoll,opsFromSession,opsFromBuildingRows,CONTRACT_COL,OPE_COL,STATUS_COL,BUILDING_COL,KINDS,TECH_LABELS,targetColumn,empty,anruIndex,ANRU_COL,ANRU_QP_COL,confortOf,oddValue,COLUMN_KEY,sortRowIndexes,ZONES,zoneOfDep,depOfRow,confortStats,SYSTEMS,DH_ZT,DH_ZNT} from './recoll.js?v=12';
+import {REL_ORDER,REL_LABEL,relKey,recoll,opsFromSession,opsFromBuildingRows,CONTRACT_COL,OPE_COL,STATUS_COL,BUILDING_COL,KINDS,TECH_LABELS,targetColumn,empty,anruIndex,ANRU_COL,ANRU_QP_COL,confortOf,oddValue,COLUMN_KEY,sortRowIndexes,ZONES,zoneOfDep,depOfRow,confortStats,SYSTEMS,DH_ZT,DH_ZNT} from './recoll.js?v=14';
 
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -267,10 +267,11 @@ const fr=v=>v==null?'—':v.toLocaleString('fr-FR',{maximumFractionDigits:1});
 function renderZoneCard(st){
   const z=state.zone, s=z?st.zones[z]:st.all;
   const line=(l,x)=>`<dt>${l}</dt><dd>${fr(x.mean)}</dd><dd>${fr(x.median)} <small>(${x.n})</small></dd>`;
-  const pct=(l,x)=>`<dt>${l}</dt><dd>${x.pct==null?'—':fr(x.pct)+' %'}</dd><dd><small>${x.yes} / ${x.known} op.</small></dd>`;
+  const pct=(l,x,base,why)=>`<dt>${l}</dt><dd>${x.pct==null?'—':fr(x.pct)+' %'}</dd><dd><small title="${why}">${x.yes} / ${base} op.</small></dd>`;
   $('zoneCard').innerHTML=`<h3>${z?'Zone '+esc(z):'Toutes zones'}</h3><div class="sub">${s.ops} opération(s), ${s.buildings} bâtiment(s)${z?'':` — cliquer sur une zone de la carte`}</div>
     <dl><dt class="hd">DH (°C.h)</dt><dd class="hd">Moyenne</dd><dd class="hd">Médiane (n)</dd>${line('Zones traversantes',s.zt)}${line('Zones non traversantes',s.znt)}</dl>
-    <dl><dt class="hd">Opérations équipées</dt><dd class="hd">Part</dd><dd class="hd">Oui / renseignées</dd>${pct('Brasseurs d’air',s.fan)}${pct('Climatisation active',s.clim)}</dl>
+    <dl><dt class="hd">Opérations équipées</dt><dd class="hd">Part</dd><dd class="hd">Oui / opérations</dd>${pct('Brasseurs d’air',s.fan,s.fan.total,'Sur toutes les opérations de la zone : sans mention de brasseur = Non.')}${pct('Climatisation active',s.clim,s.clim.total,'Sur toutes les opérations de la zone : sans mention de climatisation = Non.')}</dl>
+    <div class="sub">Parts calculées sur les ${s.ops} opération(s) de la zone : une opération sans mention compte comme « Non ».</div>
     ${z?'<button class="btn quiet small" id="zoneAll" type="button">Voir toutes les zones</button>':''}`;
   $('zoneSystems').innerHTML=`<caption>DH selon le système constructif — ${z?'zone '+esc(z):'toutes zones'}</caption><thead><tr><th scope="col">Système constructif</th><th scope="col">Bâtiments</th><th scope="col">DH ZT moyenne</th><th scope="col">DH ZT médiane (n)</th><th scope="col">DH ZNT moyenne</th><th scope="col">DH ZNT médiane (n)</th></tr></thead><tbody>${s.systems.map(x=>`<tr><th scope="row">${esc(x.system)}</th><td>${x.buildings}</td><td>${fr(x.zt.mean)}</td><td>${fr(x.zt.median)} (${x.zt.n})</td><td>${fr(x.znt.mean)}</td><td>${fr(x.znt.median)} (${x.znt.n})</td></tr>`).join('')}</tbody>`;
 }
