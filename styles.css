@@ -290,3 +290,15 @@ td.sfdiff::after{content:"";position:absolute;top:0;right:0;border-style:solid;b
 #pubStatus{min-height:1.4em;font-weight:600}
 #pubStatus.err{color:#b0413e}
 #pubStatus.ok{color:#22825a}
+
+/* Recherches ExtracTerre (ex-observatoire des recherches) */
+.rs-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:4px 0 14px}
+.rs-kpi{background:var(--surface);border:1px solid var(--line-strong);border-radius:4px;padding:10px 12px}.rs-kpi b{display:block;font-family:var(--display);font-size:20px;color:var(--et-ink);font-weight:400}.rs-kpi span{font-size:12.5px;color:var(--ink-2)}
+.rs-theme{background:var(--surface);border:1px solid var(--line-strong);border-radius:4px;padding:12px 14px;margin-bottom:12px}
+.rs-theme h3{margin:0;font-family:var(--display);font-size:14px;font-weight:400;letter-spacing:.03em;color:var(--dust)}.rs-theme .muted{margin:2px 0 6px}
+.rs-crit{display:grid;grid-template-columns:minmax(200px,2fr) 3fr 110px;gap:12px;align-items:center;padding:6px 0;border-top:1px solid var(--line);font-size:13px}
+.rs-crit small{display:block;color:var(--ink-3);font-size:12px}
+.rs-track{height:12px;background:var(--sunk);border-radius:99px;overflow:hidden;display:flex}.rs-track .ok{background:var(--et)}.rs-track .ko{background:var(--rust)}
+.rs-pct{text-align:right}.rs-legend{display:flex;gap:14px;font-size:12px;color:var(--ink-3);margin:4px 0}.rs-legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.grid td.rs-ok{color:var(--et-ink);font-weight:600}.grid td.rs-ko{color:var(--sf-ink);font-weight:600}.grid td.rs-na{color:var(--ink-3)}
+@media (max-width:720px){.rs-crit{grid-template-columns:1fr;gap:4px}.rs-pct{text-align:left}}

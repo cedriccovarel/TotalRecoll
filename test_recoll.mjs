@@ -223,3 +223,26 @@ console.log('Carte confort d’été (zones climatiques) OK');
   assert.deepEqual(publishTable(r,'').rows[0].slice(2,5),['Lille',41,'']);
   console.log('Publication OPERATIONS OK');
 }
+{ // Recherches ExtracTerre × référentiel Tous contrats (données fictives)
+  const {researchFromSession,mergeResearch,researchRows,researchStats,NO_REF}=await import('./recoll.js');
+  const grid={id:'g',name:'Grille',themes:[{name:'Thème',min:1}],criteria:[{id:'c1',theme:'Thème',label:'Critère 1'},{id:'c2',theme:'Thème',label:'Critère 2'}]};
+  const s=(ok,f1,v)=>({themes:{'Thème':{ok,found:f1?1:0}},criteria:{c1:{found:f1,values:v},c2:{found:false,contrary:!f1}}});
+  const a=researchFromSession({format:'extracterre-session',exportedAt:'2026-11-01',grids:[grid],operations:[
+    {title:'00001111 - 59 - A',identity:{contract:'',owner:'MOA doc'},searches:{g:s(true,true,[10])}},
+    {title:'B',identity:{contract:'2222',code:'OPE-000002'},searches:{g:s(false,false,[])}},
+    {title:'C',identity:{contract:'3333'},searches:{}},
+    {title:'D',identity:{contract:'9999'},searches:{g:s(true,true,[30])}}]},'p1');
+  assert.equal(a.ops.length,3); assert.equal(a.ops[0].contract,'00001111');
+  const b=researchFromSession({format:'extracterre-session',kind:'observatoire',exportedAt:'2026-11-10',grids:[grid],operations:[{title:'B',identity:{contract:'00002222'},searches:{g:s(true,true,[20])}}]},'p2');
+  const m=mergeResearch([a,b]); assert.equal(m.ops.length,3); assert.equal(m.ops.find(o=>o.contract==='00002222').searches.g.themes['Thème'].ok,true); // plus récent
+  const sf={header:['Numéro du contrat','Opération: Code interne','Référentiel','Nom de la société: Nom de la société',"Nom de l'opération"],rows:[
+    ['00001111','OPE-000001','NF Habitat','MOA SF','Op A'],['00001111','OPE-000001','NF Habitat HQE','MOA SF','Op A'],['00002222','OPE-000002','','MOA 2','Op B']]};
+  const rows=researchRows(m,sf);
+  const A=rows.find(o=>o.contract==='00001111'); assert.deepEqual(A.refs,['NF Habitat','NF Habitat HQE']); assert.equal(A.owner,'MOA SF'); assert.equal(A.name,'Op A');
+  assert.deepEqual(rows.find(o=>o.contract==='00002222').refs,['Référentiel non renseigné']);
+  const D=rows.find(o=>o.contract==='00009999'); assert.deepEqual(D.refs,[NO_REF]); assert.equal(D.inSf,false);
+  const st=researchStats(rows.filter(o=>o.refs.includes('NF Habitat')),grid);
+  assert.equal(st.rows.length,1); assert.equal(st.themes[0].ok,1); assert.equal(st.themes[0].crit[0].ok,1); assert.equal(st.themes[0].crit[0].med,10);
+  const all=researchStats(rows,grid); assert.equal(all.rows.length,3); assert.equal(all.themes[0].crit[0].med,20);
+  console.log('Recherches × référentiel OK');
+}

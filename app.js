@@ -1,11 +1,11 @@
-import {REL_ORDER,REL_LABEL,relKey,recoll,opsFromSession,opsFromBuildingRows,CONTRACT_COL,OPE_COL,STATUS_COL,BUILDING_COL,KINDS,TECH_LABELS,targetColumn,empty,anruIndex,ANRU_COL,ANRU_QP_COL,confortOf,oddValue,COLUMN_KEY,sortRowIndexes,ZONES,zoneOfDep,depOfRow,confortStats,SYSTEMS,DH_ZT,DH_ZNT,publishTable} from './recoll.js?v=15';
+import {REL_ORDER,REL_LABEL,relKey,recoll,opsFromSession,opsFromBuildingRows,CONTRACT_COL,OPE_COL,STATUS_COL,BUILDING_COL,KINDS,TECH_LABELS,targetColumn,empty,anruIndex,ANRU_COL,ANRU_QP_COL,confortOf,oddValue,COLUMN_KEY,sortRowIndexes,ZONES,zoneOfDep,depOfRow,confortStats,SYSTEMS,DH_ZT,DH_ZNT,publishTable,researchFromSession,mergeResearch,researchRows,researchStats,NO_REF} from './recoll.js?v=16';
 
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const fmt=v=>v==null?'':typeof v==='number'?v.toLocaleString('fr-FR',{maximumFractionDigits:6}):String(v);
 const PAGE=100;
 const KEY_COLS=[CONTRACT_COL,OPE_COL,"Nom de l'opération",'Nom de la société: Nom de la société','Référentiel',BUILDING_COL,'Total logements','Nombre de logements','Ville','Latitude','Longitude','Cep projet','Bbio projet','DH projet','IC construction','ANRU'];
-const state={filter:'recolle',sf:null,sfName:'',sfSheet:'',et:[],result:null,decisions:{},page:0,sort:{col:null,dir:''},tab:'table',map:null,mapLayer:null,anru:null,anruMap:null,anruLayer:null,mentionsOff:new Set(),zonesGeo:null,zoneMap:null,zone:''};
+const state={filter:'recolle',sf:null,sfName:'',sfSheet:'',et:[],result:null,decisions:{},page:0,sort:{col:null,dir:''},tab:'table',map:null,mapLayer:null,anru:null,anruMap:null,anruLayer:null,mentionsOff:new Set(),zonesGeo:null,zoneMap:null,zone:'',rs:{grid:'',ref:'',owner:'',q:''}};
 try{ state.decisions=JSON.parse(localStorage.getItem('totalrecoll.decisions')||'{}'); }catch{}
 const saveDecisions=()=>{ try{ localStorage.setItem('totalrecoll.decisions',JSON.stringify(state.decisions)); }catch{} };
 
@@ -51,7 +51,9 @@ async function loadSf(file){
   throw new Error(`Aucune feuille de « ${file.name} » ne contient les colonnes « ${CONTRACT_COL} » et « ${OPE_COL} ».`);
 }
 async function loadEt(file){
-  if(/\.json$/i.test(file.name)) return {name:file.name,kind:'Session JSON',ops:opsFromSession(await readSessionHead(file),file.name)};
+  // Session : bâtiments (recollement) + résultats de l'onglet Recherches ; export « observatoire » : recherches seules.
+  if(/\.json$/i.test(file.name)){ const head=await readSessionHead(file), research=researchFromSession(head,file.name);
+    return {name:file.name,kind:head.kind==='observatoire'?'Recherches':'Session JSON',ops:head.kind==='observatoire'?[]:opsFromSession(head,file.name),research}; }
   const wb=await readBook(file), ws=wb.Sheets['Données par bâtiment'];
   if(!ws) throw new Error(`« ${file.name} » n’a pas de feuille « Données par bâtiment » (export ExtracTerre attendu).`);
   const aoa=sheetAoa(ws), h=aoa[0];
@@ -100,7 +102,7 @@ function renderSources(){
   $('dropSf').classList.toggle('loaded',!!sf);
   $('sfCards').innerHTML=sf?`<div class="card"><div class="grow"><div class="name">${esc(state.sfName)}</div><div class="meta">${sf.rows.length.toLocaleString('fr-FR')} lignes, ${sf.header.length} colonnes, feuille ${esc(state.sfSheet)}</div></div><button class="x" data-rm-sf title="Retirer" aria-label="Retirer ${esc(state.sfName)}">×</button></div>`:'';
   $('dropEt').classList.toggle('loaded',state.et.length>0);
-  $('etCards').innerHTML=state.et.map((e,i)=>`<div class="card"><div class="grow"><div class="name">${esc(e.name)}</div><div class="meta">${e.ops.length} opérations, ${e.ops.reduce((a,o)=>a+o.buildings.length,0)} bâtiments (${e.kind.toLowerCase()})</div></div><button class="x" data-rm-et="${i}" title="Retirer" aria-label="Retirer ${esc(e.name)}">×</button></div>`).join('');
+  $('etCards').innerHTML=state.et.map((e,i)=>`<div class="card"><div class="grow"><div class="name">${esc(e.name)}</div><div class="meta">${e.ops.length} opérations, ${e.ops.reduce((a,o)=>a+o.buildings.length,0)} bâtiments${e.research?.ops.length?`, ${e.research.ops.length} avec recherches`:''} (${e.kind.toLowerCase()})</div></div><button class="x" data-rm-et="${i}" title="Retirer" aria-label="Retirer ${esc(e.name)}">×</button></div>`).join('');
 }
 
 /* ---------- Étape 2 : contrôle ---------- */
@@ -125,9 +127,9 @@ function renderControl(){
   $('kpis').innerHTML=chip('recolle','Recollées',r.meta.filter(m=>m.kind==='recolle'||m.kind==='vide').length,'et')+chip('check','À contrôler',issues,issues?'check':'')
     +chip('sf','Tous contrats seul',r.meta.filter(m=>m.kind==='sf').length,'sf')+chip('et','ExtracTerre seul',r.meta.filter(m=>m.kind==='et').length)
     +(s.conflits?chip('conflit','En conflit',r.meta.filter(m=>m.kind==='conflit').length,'bad'):'')+chip('all','Toutes les lignes',s.lignes);
-  $('nIssues').textContent=issues; $('nEcarts').textContent=s.ecarts; $('nMap').textContent=geo; $('nAnru').textContent=anruRows().length||''; $('nConfort').textContent=confortRows().length||'';
+  $('nIssues').textContent=issues; $('nEcarts').textContent=s.ecarts; $('nMap').textContent=geo; $('nAnru').textContent=anruRows().length||''; $('nConfort').textContent=confortRows().length||''; $('nResearch').textContent=researchAll().length||'';
   $('exportLine').innerHTML=`<b>${n(s.lignes)} lignes × ${r.header.length} colonnes</b> prêtes pour la feuille OPERATIONS de l’Observatoire`;
-  renderTable(); renderIssues(); renderEcarts(); renderColumns(); if(state.tab==='map') renderMap(); if(state.tab==='anru') renderAnru(); if(state.tab==='confort') renderConfort();
+  renderTable(); renderIssues(); renderEcarts(); renderColumns(); if(state.tab==='map') renderMap(); if(state.tab==='anru') renderAnru(); if(state.tab==='confort') renderConfort(); if(state.tab==='research') renderResearch();
 }
 function visibleColumns(){
   const r=state.result, si=r.header.indexOf(STATUS_COL), preset=$('preset').value;
@@ -239,6 +241,53 @@ function downloadCsv(name,header,rows){
   const cell=v=>{ const s=v==null?'':typeof v==='number'?String(v).replace('.',','):String(v); return /[;"\n\r]/.test(s)?`"${s.replace(/"/g,'""')}"`:s; };
   const csv='\ufeff'+[header,...rows].map(row=>row.map(cell).join(';')).join('\r\n');
   const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})); a.download=`TotalRecoll_${name}_${new Date().toISOString().slice(0,10)}.csv`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+
+/* ---------- Recherches ExtracTerre, croisées avec le référentiel de Tous contrats ---------- */
+let rsCache=null;
+function researchData(){
+  const parts=state.et.map(e=>e.research).filter(Boolean), key=parts.map(p=>p.ops.length).join(',')+'|'+state.et.map(e=>e.name).join(',')+'|'+(state.sf?.rows.length||0)+state.sfName;
+  if(rsCache?.key!==key){ const m=mergeResearch(parts); rsCache={key,grids:m.grids,rows:researchRows(m,state.sf)}; }
+  return rsCache;
+}
+const researchAll=()=>researchData().rows;
+function researchSelected(){
+  const {rows}=researchData(), f=state.rs, q=f.q.toLowerCase();
+  return rows.filter(o=>(!f.ref||o.refs.includes(f.ref))&&(!f.owner||o.owner===f.owner)&&(!q||`${o.contract} ${o.ope} ${o.name} ${o.owner} ${o.refs.join(' ')}`.toLowerCase().includes(q)));
+}
+const pct1=(a,b)=>b?Math.round(a/b*1000)/10:0;
+function renderResearch(){
+  const {grids,rows}=researchData(), box=$('research'), f=state.rs;
+  if(!grids.length||!rows.length){ ['rsGrid','rsRef','rsOwner'].forEach(id=>$(id).innerHTML=''); box.innerHTML='<p class="muted">Aucun résultat de recherche dans les fichiers ExtracTerre chargés. Déposez les fichiers de session (« Exporter la session ») : ils contiennent les grilles et les résultats de l’onglet Recherches.</p>'; return; }
+  if(!grids.some(g=>g.id===f.grid)) f.grid=grids[0].id; const g=grids.find(x=>x.id===f.grid);
+  const opt=(v,l,sel)=>`<option value="${esc(v)}"${v===sel?' selected':''}>${esc(l)}</option>`, cnt=(list,k)=>list.filter(k).length;
+  const refs=[...new Set(rows.flatMap(o=>o.refs))].sort((a,b)=>(a===NO_REF)-(b===NO_REF)||a.localeCompare(b,'fr'));
+  if(f.ref&&!refs.includes(f.ref)) f.ref='';
+  const owners=[...new Set(rows.map(o=>o.owner))].sort((a,b)=>a.localeCompare(b,'fr')); if(f.owner&&!owners.includes(f.owner)) f.owner='';
+  $('rsGrid').innerHTML=grids.map(x=>opt(x.id,`Grille : ${x.name||x.id}`,f.grid)).join('');
+  $('rsRef').innerHTML=opt('',`Tous les référentiels (${refs.length})`,f.ref)+refs.map(r=>opt(r,`${r} (${cnt(rows,o=>o.refs.includes(r)&&o.searches[g.id])})`,f.ref)).join('');
+  $('rsOwner').innerHTML=opt('',`Tous les maîtres d’ouvrage (${owners.length})`,f.owner)+owners.map(o=>opt(o,o,f.owner)).join('');
+  const st=researchStats(researchSelected(),g), N=st.rows.length, n=v=>v.toLocaleString('fr-FR');
+  const notSf=st.rows.filter(o=>!o.inSf).length;
+  box.innerHTML=`<div class="rs-kpis"><div class="rs-kpi"><b>${n(N)}</b><span>opération(s) analysée(s) avec « ${esc(g.name||g.id)} »${notSf?` · ${notSf} hors Tous contrats`:''}</span></div>
+    <div class="rs-kpi"><b>${n(new Set(st.rows.map(o=>o.owner)).size)}</b><span>maître(s) d’ouvrage</span></div>
+    ${st.themes.map(x=>`<div class="rs-kpi"><b>${pct1(x.ok,x.applicable)} %</b><span>${esc(x.t.name)} : indices suffisants (${x.ok} / ${x.applicable})</span></div>`).join('')}</div>
+  ${N?st.themes.map(x=>`<section class="rs-theme"><h3>${esc(x.t.name)}</h3><p class="muted">${x.applicable} opération(s) concernée(s) · minimum ${Number(x.t.min)||0} critère(s)</p>
+    <div class="rs-legend"><span><i style="background:var(--et)"></i>Indice trouvé</span><span><i style="background:var(--rust)"></i>Indice contraire / hors seuil</span></div>
+    ${x.crit.map(c=>`<div class="rs-crit"><div>${esc(c.c.label)}${c.min!=null?`<small>valeurs lues : min ${fmt(c.min)} · médiane ${fmt(c.med)} · max ${fmt(c.max)}${c.c.unit?' '+esc(c.c.unit):''}</small>`:''}</div>
+      <div class="rs-track" role="img" aria-label="${pct1(c.ok,c.pool)} % trouvés, ${pct1(c.ko,c.pool)} % contraires"><span class="ok" style="width:${pct1(c.ok,c.pool)}%"></span><span class="ko" style="width:${pct1(c.ko,c.pool)}%"></span></div>
+      <div class="rs-pct">${pct1(c.ok,c.pool)} %<small>${c.ok} / ${c.pool}${c.ko?` · ${c.ko} contraire(s)`:''}</small></div></div>`).join('')}</section>`).join('')
+    +`<div class="scroll"><table class="grid"><thead><tr><th scope="col">Contrat</th><th scope="col">OPE</th><th scope="col">Opération</th><th scope="col">Maître d’ouvrage</th><th scope="col">Référentiel</th>${(g.themes||[]).map(t=>`<th scope="col">${esc(t.name)}</th>`).join('')}<th scope="col">Export</th></tr></thead><tbody>
+      ${st.rows.map(o=>{ const s=o.searches[g.id]; return `<tr><td>${esc(o.contract||'—')}</td><td>${esc(o.ope||'—')}</td><td title="${esc(o.name)}">${esc(o.name)}</td><td title="${esc(o.owner)}">${esc(o.owner)}</td><td title="${esc(o.refs.join(' / '))}">${esc(o.refs.join(' / '))}</td>${(g.themes||[]).map(t=>{ const th=s.themes?.[t.name]; return th?.applicable===false?'<td class="rs-na">–</td>':th?.ok?`<td class="rs-ok">✓ ${th.found??''}</td>`:`<td class="rs-ko">✗ ${th?.found??0}</td>`; }).join('')}<td>${esc(String(o.at).slice(0,10))}</td></tr>`; }).join('')}</tbody></table></div>`
+    :'<p class="muted">Aucune opération de cette sélection n’a été analysée avec cette grille.</p>'}`;
+}
+function exportResearchCsv(){
+  const {grids}=researchData(), g=grids.find(x=>x.id===state.rs.grid); if(!g){ toast('Aucun résultat de recherche à exporter.','error'); return; }
+  const rows=researchSelected().filter(o=>o.searches[g.id]);
+  const head=['Contrat','OPE','Opération','Maître d’ouvrage','Référentiel',...(g.themes||[]).map(t=>`${t.name} — suffisant`),...(g.criteria||[]).map(c=>`${c.theme} — ${c.label}`),'Date de l’export ExtracTerre'];
+  downloadCsv(`Recherches_${String(g.name||g.id).replace(/[^\w-]+/g,'_')}`,head,rows.map(o=>{ const s=o.searches[g.id];
+    return [o.contract,o.ope,o.name,o.owner,o.refs.join(' / '),...(g.themes||[]).map(t=>{ const th=s.themes?.[t.name]; return th?.applicable===false?'Non applicable':th?.ok?'Oui':'Non'; }),...(g.criteria||[]).map(c=>s.criteria?.[c.id]?.value??''),String(o.at).slice(0,10)]; }));
+  toast(`${rows.length} opération(s) exportée(s).`,'success');
 }
 
 /* ---------- Confort d'été : valeurs normalisées par bâtiment ---------- */
@@ -459,6 +508,7 @@ function setTab(tab){
   if(tab==='map') renderMap();
   if(tab==='anru') renderAnru();
   if(tab==='confort') renderConfort();
+  if(tab==='research') renderResearch();
 }
 function decide(key,v){ state.decisions[key]=v; saveDecisions(); const open=$('drawer').hidden?null:+$('drawer').dataset.row; run(); if(open!=null) openRow(open); }
 function setupDrop(zone,input,handler){
@@ -508,6 +558,9 @@ $('helpBtn').addEventListener('click',()=>$('help').showModal());
 $('mentions').addEventListener('change',e=>{ const m=e.target.dataset.mention; if(m==null) return; e.target.checked?state.mentionsOff.delete(m):state.mentionsOff.add(m); renderAnru(); });
 $('anruCsv').addEventListener('click',exportAnruCsv);
 $('confortCsv').addEventListener('click',exportConfortCsv);
+$('rsCsv').addEventListener('click',exportResearchCsv);
+['rsGrid','rsRef','rsOwner'].forEach(id=>$(id).addEventListener('change',e=>{ state.rs[{rsGrid:'grid',rsRef:'ref',rsOwner:'owner'}[id]]=e.target.value; renderResearch(); }));
+let rsTimer; $('rsQ').addEventListener('input',e=>{ clearTimeout(rsTimer); rsTimer=setTimeout(()=>{ state.rs.q=e.target.value.trim(); renderResearch(); },180); });
 $('zoneCard').addEventListener('click',e=>{ if(e.target.id==='zoneAll'){ state.zone=''; renderZones(); } });
 $('mentionsAll').addEventListener('click',()=>{ state.mentionsOff.clear(); renderAnru(); });
 $('mentionsNone').addEventListener('click',()=>{ anruRows().forEach(p=>p.mentions.forEach(m=>state.mentionsOff.add(m))); renderAnru(); });

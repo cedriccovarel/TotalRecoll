@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Michroma&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="styles.css?v=12">
+<link rel="stylesheet" href="styles.css?v=13">
 </head>
 <body>
 <header class="top">
@@ -64,6 +64,7 @@
         <button role="tab" class="tab" data-tab="map" aria-selected="false">Carte <b id="nMap"></b></button>
         <button role="tab" class="tab" data-tab="anru" aria-selected="false">ANRU <b id="nAnru"></b></button>
         <button role="tab" class="tab" data-tab="confort" aria-selected="false">Confort d’été <b id="nConfort"></b></button>
+        <button role="tab" class="tab" data-tab="research" aria-selected="false">Recherches <b id="nResearch"></b></button>
         <button role="tab" class="tab" data-tab="columns" aria-selected="false">Colonnes</button>
       </div>
     </div>
@@ -129,6 +130,18 @@
       <p class="muted small">Système constructif : ossature bois (dont CLT, bois massif) ; béton ou brique + isolation extérieure si ITE ; + isolation intérieure ou répartie si ITI, monomur ou béton cellulaire. Une structure ou une isolation absente, mixte (ITE et ITI) ou hors de ces catégories reste vide, avec la raison dans « À vérifier ». Brasseur d’air : colonne Oui / Non, sinon le nombre de brasseurs. Climatisation : colonne Climatisation active, sinon le refroidissement après travaux. Zone climatique : département du code postal, du code INSEE, du nom d’opération ou de la géolocalisation (arrêté du 4 août 2021) ; contours IGN Admin Express, Licence Ouverte. DH : moyenne et médiane sur les bâtiments renseignés ; brasseur d’air et climatisation : part des opérations renseignées (une opération compte si un de ses bâtiments est équipé).</p>
     </div>
 
+    <div class="panel" data-panel="research" hidden>
+      <div class="tools">
+        <select id="rsGrid" aria-label="Grille de recherche"></select>
+        <select id="rsRef" aria-label="Référentiel"></select>
+        <select id="rsOwner" aria-label="Maître d’ouvrage"></select>
+        <input id="rsQ" type="search" placeholder="Rechercher un contrat, une OPE, une opération" aria-label="Rechercher une opération">
+        <button class="btn small" id="rsCsv" type="button">Exporter en CSV</button>
+      </div>
+      <div id="research"></div>
+      <p class="muted small">Résultats de l’onglet Recherches d’ExtracTerre, lus dans les fichiers de session (ou les anciens exports « observatoire des recherches »). Référentiel, maître d’ouvrage et nom de l’opération : Tous contrats (Salesforce), par n° de contrat puis par OPE. Une opération présente dans plusieurs fichiers garde, pour chaque grille, l’export le plus récent. Indices relevés dans les documents, à valeur d’étude de l’existant.</p>
+    </div>
+
     <div class="panel" data-panel="columns" hidden>
       <p class="muted">Où chaque libellé ExtracTerre est écrit dans le tableau Tous contrats. Les colonnes « ajoutées » n’existent pas dans Tous contrats : elles sont placées à la fin, avant « Recollement ».</p>
       <div class="scroll"><table id="columns" class="grid"></table></div>
@@ -188,6 +201,6 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="newosb-bridge.js?v=6.66.0"></script>
-<script type="module" src="app.js?v=21"></script>
+<script type="module" src="app.js?v=22"></script>
 </body>
 </html>

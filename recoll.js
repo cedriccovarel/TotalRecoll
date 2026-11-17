@@ -313,3 +313,59 @@ export function publishTable(r,minLevel){
     return out; });
   return {header:r.header.map(h=>String(h??'')),rows,skipped};
 }
+
+// ---------- Recherches ExtracTerre (onglet Recherches d'ExtracTerre, anciennement « Observatoire des recherches ») ----------
+// Lues dans la tête d'une session (operations[].searches + grids) ou dans l'export « ExtracTerre_observatoire_….json ».
+// Le référentiel, le maître d'ouvrage et le nom viennent de Tous contrats (Salesforce fait foi), par contrat puis par OPE.
+export function researchFromSession(json,source=''){
+  if(json?.format!=='extracterre-session'||!Array.isArray(json.operations)) throw new Error('Ce JSON n’est pas une session ExtracTerre.');
+  const grids=(Array.isArray(json.grids)?json.grids:[]).filter(g=>g&&g.id&&Array.isArray(g.criteria));
+  const ops=json.operations.filter(o=>o&&o.searches&&Object.keys(o.searches).length).map(o=>({
+    contract:contractOf(o.identity?.contract)||leadContract(o.title)||leadContract(o.identity?.name),
+    ope:normOpe(o.identity?.code)||normOpe(o.title),
+    name:String(o.identity?.name||o.title||''),owner:String(o.identity?.owner||''),
+    searches:o.searches,at:String(json.exportedAt||''),source}));
+  return {grids,ops};
+}
+const researchKey=o=>o.contract||o.ope||o.name.trim().toLowerCase();
+// Plusieurs fichiers : une opération par contrat (sinon OPE, sinon nom) ; pour chaque grille, l'export le plus récent l'emporte.
+export function mergeResearch(parts){
+  const grids=new Map(), ops=new Map();
+  for(const p of parts){ for(const g of p.grids||[]) grids.set(String(g.id),g);
+    for(const o of p.ops||[]){ const k=researchKey(o); if(!k) continue; const prev=ops.get(k);
+      if(!prev){ ops.set(k,{...o,searches:{...o.searches}}); continue; }
+      for(const [gid,s] of Object.entries(o.searches)) if(!prev.searches[gid]||o.at>=prev.at) prev.searches[gid]=s;
+      if(o.at>=prev.at) Object.assign(prev,{name:o.name||prev.name,owner:o.owner||prev.owner,at:o.at}); } }
+  return {grids:[...grids.values()],ops:[...ops.values()]};
+}
+export const NO_REF='Non trouvé dans Tous contrats';
+// Tous contrats → par contrat et par OPE : référentiel(s) (tous les bâtiments), maître d'ouvrage, nom de l'opération.
+export function sfIndex(sf){
+  const byC=new Map(), byO=new Map(); if(!sf) return {byC,byO};
+  const h=sf.header, col=(...names)=>{ for(const n of names){ const j=h.indexOf(n); if(j>=0) return j; } return -1; };
+  const cC=h.indexOf(CONTRACT_COL), cO=h.indexOf(OPE_COL), cR=h.findIndex(x=>/^r[ée]f[ée]rentiels?$/i.test(String(x).trim()));
+  const cM=col('Nom de la société: Nom de la société','Maître d’ouvrage',"Maître d'ouvrage"), cN=col("Nom de l'opération",'Nom de l’opération');
+  for(const r of sf.rows){ const c=cC>=0?normContract(r[cC]):'', o=cO>=0?normOpe(r[cO]):''; if(!c&&!o) continue;
+    const e=(c&&byC.get(c))||(o&&byO.get(o))||{refs:new Set(),owner:'',name:''};
+    const ref=cR>=0?String(r[cR]??'').trim():''; if(ref&&!empty(ref)) ref.split(/\s*;\s*/).filter(Boolean).forEach(x=>e.refs.add(x));
+    if(!e.owner&&cM>=0&&!empty(r[cM])) e.owner=String(r[cM]).trim(); if(!e.name&&cN>=0&&!empty(r[cN])) e.name=String(r[cN]).trim();
+    if(c) byC.set(c,e); if(o) byO.set(o,e); }
+  return {byC,byO};
+}
+export function researchRows(merged,sf){
+  const ix=sfIndex(sf);
+  return merged.ops.map(o=>{ const e=(o.contract&&ix.byC.get(o.contract))||(o.ope&&ix.byO.get(o.ope))||null;
+    return {...o,inSf:!!e,refs:e&&e.refs.size?[...e.refs].sort((a,b)=>a.localeCompare(b,'fr')):[e?'Référentiel non renseigné':NO_REF],
+      owner:e?.owner||o.owner||'Non renseigné',name:e?.name||o.name}; });
+}
+// Statistiques d'une grille sur une sélection d'opérations (mêmes règles que l'observatoire d'ExtracTerre).
+export function researchStats(rows,grid){
+  const withG=rows.filter(o=>o.searches?.[grid.id]), num=v=>(Array.isArray(v)?v:[]).map(Number).filter(Number.isFinite);
+  const themes=(grid.themes||[]).map(t=>{ const pool=withG.filter(o=>o.searches[grid.id].themes?.[t.name]?.applicable!==false);
+    const crit=(grid.criteria||[]).filter(c=>c.theme===t.name).map(c=>{ const rs=pool.map(o=>o.searches[grid.id].criteria?.[c.id]).filter(Boolean);
+      const vals=rs.flatMap(r=>num(r.values)).sort((a,b)=>a-b);
+      return {c,pool:pool.length,ok:rs.filter(r=>r.found).length,ko:rs.filter(r=>!r.found&&r.contrary).length,
+        min:vals.length?vals[0]:null,med:vals.length?vals[Math.floor(vals.length/2)]:null,max:vals.length?vals[vals.length-1]:null}; });
+    return {t,applicable:pool.length,ok:pool.filter(o=>o.searches[grid.id].themes?.[t.name]?.ok).length,crit}; });
+  return {rows:withG,themes};
+}
