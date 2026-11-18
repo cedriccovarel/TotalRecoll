@@ -268,6 +268,17 @@ console.log('Carte confort d’été (zones climatiques) OK');
     it2=verificationItems([op2],g2,{[verifKey(op2,'g','fen_442')]:{d:'pa'}}); assert.equal(it2.filter(i=>!i.decision).length,2,'un Partiel ne se propage pas'); }
   { const vs=verifiedSearch(o,grid,{[verifKey(o,'g','p_badge')]:{d:'so'}}); assert.equal(vs.criteria.p_badge.found,false); assert.equal(vs.criteria.p_badge.offTopic,true); assert.equal(vs.criteria.p_badge.contrary,false,'Sans objet = nul'); assert.equal(vs.criteria.p_badge.value,'');
     assert.equal(verificationProgress(verificationItems([o],grid,{[verifKey(o,'g','p_badge')]:{d:'so'}})).so,1); }
+  { const {effectiveDecisions}=await import('./recoll.js');
+    const g3={id:'g',themes:[],criteria:[{id:'porte_3pts',theme:'P',label:'Serrure 3 points'},{id:'porte_a2p',theme:'P',label:'A2P BP1'}]};
+    const S='- Serrure de sûreté 3 points de marque BRICARD modèle 8150', mk=(c,crit)=>({contract:c,ope:'',name:'Op '+c,searches:{g:{criteria:crit}}});
+    const A=mk('00000001',{porte_3pts:{found:true,evidence:[{doc:'x',page:1,line:S,ok:true}]}}), B=mk('00000002',{porte_3pts:{found:true,evidence:[{doc:'y',page:5,line:'  '+S.toUpperCase(),ok:true}]},porte_a2p:{found:true,evidence:[{doc:'y',page:5,line:S,ok:true}]}});
+    let it3=verificationItems([A,B],g3,{[verifKey(A,'g','porte_3pts')]:{d:'ko',at:'2026-11-18T10:00:00Z'}});
+    const b3=it3.find(i=>i.op===B&&i.crit.id==='porte_3pts'); assert.equal(b3.decision,'ko','même phrase, même exigence, autre opération'); assert.equal(b3.sameSentence,true);
+    assert.equal(it3.find(i=>i.op===B&&i.crit.id==='porte_a2p').decision,'','autre exigence : pas reprise');
+    it3=verificationItems([A,B],g3,{[verifKey(A,'g','porte_3pts')]:{d:'ko',at:'1'},[verifKey(B,'g','porte_3pts')]:{d:'ok',at:'0'}});
+    assert.equal(it3.find(i=>i.op===B&&i.crit.id==='porte_3pts').decision,'ok','la décision propre l’emporte');
+    const eff=effectiveDecisions(verificationItems([A,B],g3,{[verifKey(A,'g','porte_3pts')]:{d:'ko',at:'1'}}));
+    assert.equal(verifiedSearch(B,g3,eff).criteria.porte_3pts.contrary,true,'la décision reprise compte dans les statistiques'); }
   console.log('Vérification des Oui OK'); }
 { const {highlightRanges}=await import('./recoll.js');
   const crit={keywords:['re:portail[^\\n]{0,40}(?:parking|sous[- ]sol|garage)'],context:['telecommande','badge']};

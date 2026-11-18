@@ -1,5 +1,5 @@
-import {REL_ORDER,REL_LABEL,relKey,recoll,opsFromSession,opsFromBuildingRows,CONTRACT_COL,OPE_COL,STATUS_COL,BUILDING_COL,KINDS,TECH_LABELS,targetColumn,empty,anruIndex,ANRU_COL,ANRU_QP_COL,confortOf,oddValue,COLUMN_KEY,sortRowIndexes,ZONES,zoneOfDep,depOfRow,confortStats,SYSTEMS,DH_ZT,DH_ZNT,publishTable,researchFromSession,mergeResearch,researchRows,researchStats,NO_REF} from './recoll.js?v=22';
-import {verificationItems,verifiedSearch,verificationProgress,highlightRanges} from './recoll.js?v=22';
+import {REL_ORDER,REL_LABEL,relKey,recoll,opsFromSession,opsFromBuildingRows,CONTRACT_COL,OPE_COL,STATUS_COL,BUILDING_COL,KINDS,TECH_LABELS,targetColumn,empty,anruIndex,ANRU_COL,ANRU_QP_COL,confortOf,oddValue,COLUMN_KEY,sortRowIndexes,ZONES,zoneOfDep,depOfRow,confortStats,SYSTEMS,DH_ZT,DH_ZNT,publishTable,researchFromSession,mergeResearch,researchRows,researchStats,NO_REF} from './recoll.js?v=23';
+import {verificationItems,verifiedSearch,verificationProgress,highlightRanges,effectiveDecisions} from './recoll.js?v=23';
 
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -256,7 +256,8 @@ let verifRev=0; const saveVerif=()=>{ verifRev++; try{ localStorage.setItem(VERI
 function researchData(){
   const parts=state.et.map(e=>e.research).filter(Boolean), key=parts.map(p=>p.ops.length).join(',')+'|'+state.et.map(e=>e.name).join(',')+'|'+(state.sf?.rows.length||0)+state.sfName;
   if(rsCache?.key!==key){ const m=mergeResearch(parts); rsCache={key,grids:m.grids,raw:researchRows(m,state.sf),rev:-1}; }
-  if(rsCache.rev!==verifRev){ rsCache.rows=rsCache.raw.map(o=>({...o,searches:Object.fromEntries(Object.entries(o.searches).map(([gid,sr])=>{ const g=rsCache.grids.find(x=>String(x.id)===gid); return [gid,g?verifiedSearch(o,g,state.verif):sr]; }))})); rsCache.rev=verifRev; }
+  if(rsCache.rev!==verifRev){ const eff={}; for(const g of rsCache.grids) Object.assign(eff,effectiveDecisions(verificationItems(rsCache.raw,g,state.verif))); // décisions propres + reprises (même phrase / même opération)
+    rsCache.rows=rsCache.raw.map(o=>({...o,searches:Object.fromEntries(Object.entries(o.searches).map(([gid,sr])=>{ const g=rsCache.grids.find(x=>String(x.id)===gid); return [gid,g?verifiedSearch(o,g,eff):sr]; }))})); rsCache.rev=verifRev; }
   return rsCache;
 }
 const researchAll=()=>researchData().rows;
@@ -329,7 +330,7 @@ function renderVerif(){
   const rows=list.slice(0,vf.limit);
   body.innerHTML=`<div class="scroll"><table class="grid verif-table"><thead><tr><th scope="col">Opération</th><th scope="col">Exigence</th><th scope="col">Vérification (preuve et source)</th><th scope="col">Décision</th></tr></thead><tbody>
     ${rows.map(i=>`<tr data-key="${esc(i.key)}" class="${i.decision?'d-'+i.decision:''}"><td class="v-op">${opHtml(i.op)}</td><td class="v-req">${reqHtml(i)}</td><td class="v-ev">${i.evidence.map(e=>evHtml(e,i.crit)).join('')||'<span class="muted">Aucune preuve exportée</span>'}</td>
-      <td class="v-dec">${i.inherited?`<small class="v-inh">✓ validé d’office (même exigence : ${esc(i.inherited)})</small>`:''}<button type="button" class="vbtn ok${i.decision==='ok'?' on':''}" data-d="ok" aria-pressed="${i.decision==='ok'}">✓ Accepter</button><button type="button" class="vbtn pa${i.decision==='pa'?' on':''}" data-d="pa" aria-pressed="${i.decision==='pa'}">◐ Partiel</button><button type="button" class="vbtn ko${i.decision==='ko'?' on':''}" data-d="ko" aria-pressed="${i.decision==='ko'}">✗ Rejeter</button><button type="button" class="vbtn so${i.decision==='so'?' on':''}" data-d="so" aria-pressed="${i.decision==='so'}" title="La phrase n’a pas de lien avec l’exigence">⊘ Sans objet</button></td></tr>`).join('')}</tbody></table></div>
+      <td class="v-dec">${i.inherited?`<small class="v-inh">${i.sameSentence?`Décision reprise (${esc(i.inherited)})`:`✓ validé d’office (même exigence : ${esc(i.inherited)})`}</small>`:''}<button type="button" class="vbtn ok${i.decision==='ok'?' on':''}" data-d="ok" aria-pressed="${i.decision==='ok'}">✓ Accepter</button><button type="button" class="vbtn pa${i.decision==='pa'?' on':''}" data-d="pa" aria-pressed="${i.decision==='pa'}">◐ Partiel</button><button type="button" class="vbtn ko${i.decision==='ko'?' on':''}" data-d="ko" aria-pressed="${i.decision==='ko'}">✗ Rejeter</button><button type="button" class="vbtn so${i.decision==='so'?' on':''}" data-d="so" aria-pressed="${i.decision==='so'}" title="La phrase n’a pas de lien avec l’exigence">⊘ Sans objet</button></td></tr>`).join('')}</tbody></table></div>
     ${list.length>rows.length?`<p class="verif-more"><button class="btn quiet small" type="button" id="vfMore">Afficher ${Math.min(150,list.length-rows.length)} de plus (${(list.length-rows.length).toLocaleString('fr-FR')} restantes)</button></p>`:''}`;
 }
 function renderVerifCard(list){

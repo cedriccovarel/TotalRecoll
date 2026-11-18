@@ -385,7 +385,14 @@ export function verificationItems(rows,grid,decisions={}){
   // 18/11/2026 — un Oui donné une fois dans une opération vaut pour les cartes en attente de cette même opération qui portent
   // sur le même critère (opération chargée deux fois) ou montrent la même phrase (« 44.2 » des fenêtres et du hall) : elles
   // sont validées d'office (decision 'ok', inherited) et ne sont plus redemandées. Rien n'est enregistré pour elles.
-  const opId=o=>o.contract||o.ope||String(o.name||'').trim().toLowerCase(), line=i=>String(i.evidence[0]?.line||'').trim().toLowerCase().replace(/\s+/g,' ');
+  const opId=o=>o.contract||o.ope||String(o.name||'').trim().toLowerCase(), line=i=>hlNorm(String(i.evidence[0]?.line||'')).replace(/[^a-z0-9.,/+*%-]+/g,' ').trim();
+  // 18/11/2026 — même phrase, même exigence, toutes opérations : la décision donnée une fois (Oui, Partiel, Non, Sans objet) vaut
+  // partout où cette phrase est la preuve de cette exigence (CCTP types répétés). La décision propre à une carte l'emporte ; si la
+  // même phrase a reçu plusieurs décisions, la plus récente est reprise.
+  { const bySentence=new Map();
+    for(const i of out){ const own=decisions[i.key]; if(!own?.d) continue; const k=`${i.crit.id}|${line(i)}`; if(!line(i)) continue;
+      const prev=bySentence.get(k); if(!prev||String(own.at||'')>=String(prev.at||'')) bySentence.set(k,{d:own.d,at:own.at,from:i.op}); }
+    for(const i of out){ if(i.decision) continue; const src=bySentence.get(`${i.crit.id}|${line(i)}`); if(src){ i.decision=src.d; i.inherited=`même phrase, ${src.from.contract||src.from.ope||src.from.name}`; i.sameSentence=true; } } }
   const byOp=new Map(); for(const i of out){ const k=opId(i.op); if(!byOp.has(k)) byOp.set(k,[]); byOp.get(k).push(i); }
   for(const list of byOp.values()){ const yes=list.filter(i=>i.decision==='ok'); if(!yes.length) continue;
     for(const i of list){ if(i.decision) continue; const src=yes.find(y=>y.crit.id===i.crit.id||(line(y)&&line(y)===line(i)));
@@ -411,6 +418,8 @@ export function verifiedSearch(o,grid,decisions={}){
     themes[t.name]={...(s.themes?.[t.name]||{}),applicable,found,min:t.min,required:req.length,requiredOk,ok:applicable?(requiredOk&&found>=(Number(t.min)||0)):null}; }
   return {...s,criteria,themes};
 }
+// Décisions effectives (propres + reprises) pour les statistiques.
+export function effectiveDecisions(items){ const m={}; for(const i of items) if(i.decision) m[i.key]={d:i.decision,inherited:!!i.inherited}; return m; }
 export function verificationProgress(items){ const c=d=>items.filter(i=>i.decision===d).length, ok=c('ok'), ko=c('ko'), pa=c('pa'), so=c('so'); return {total:items.length,ok,ko,pa,so,todo:items.length-ok-ko-pa-so}; }
 
 /* Surlignage d'une preuve : passages qui ont déclenché le critère (mots-clés de la grille, kind 'k') et mots de contexte
