@@ -136,7 +136,8 @@
         <select id="rsRef" aria-label="Référentiel"></select>
         <select id="rsOwner" aria-label="Maître d’ouvrage"></select>
         <input id="rsQ" type="search" placeholder="Rechercher un contrat, une OPE, une opération" aria-label="Rechercher une opération">
-        <button class="btn small" id="rsVerif" type="button" title="Vérifier une à une les réponses « Oui » avec leur preuve">✔ Vérifier les « Oui » <b id="nVerif"></b></button>
+        <button class="btn small" id="rsVerif" type="button" title="Contrôler à la main, carte par carte, les exigences validées (« Oui ») par ExtracTerre, avec leur preuve">✔ Contrôler les « Oui » <b id="nVerif"></b></button>
+        <button class="btn small" id="rsTrancher" type="button" title="Trancher les exigences qu’ExtracTerre n’a pas pu trancher (« Partiel »)">◐ Trancher les « Partiel » <b id="nTrancher"></b></button>
         <button class="btn small" id="rsCsv" type="button">Exporter en CSV</button>
       </div>
       <div id="research"></div>
@@ -192,6 +193,10 @@
     <button class="btn quiet small" type="button" id="verifClose" aria-label="Fermer">Fermer</button>
   </header>
   <div class="verif-tools">
+    <div class="seg" role="radiogroup" aria-label="Option">
+      <button type="button" role="radio" data-mode="oui" aria-checked="true" title="Exigences validées par ExtracTerre">✔ Contrôle des « Oui »</button>
+      <button type="button" role="radio" data-mode="partiel" aria-checked="false" title="Exigences qu’ExtracTerre n’a pas pu trancher">◐ À trancher</button>
+    </div>
     <select id="vfCrit" aria-label="Critère"></select>
     <select id="vfStatus" aria-label="Statut de vérification">
       <option value="todo">À vérifier</option><option value="ok">Acceptés</option><option value="ko">Rejetés</option><option value="pa">Partiels</option><option value="so">Sans objet</option><option value="all">Tous</option>
@@ -225,6 +230,6 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="newosb-bridge.js?v=6.66.0"></script>
-<script type="module" src="app.js?v=30"></script>
+<script type="module" src="app.js?v=31"></script>
 </body>
 </html>

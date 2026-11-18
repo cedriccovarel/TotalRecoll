@@ -278,11 +278,11 @@ function renderResearch(){
   $('rsRef').innerHTML=opt('',`Tous les référentiels (${refs.length})`,f.ref)+refs.map(r=>opt(r,`${r} (${cnt(rows,o=>o.refs.includes(r)&&o.searches[g.id])})`,f.ref)).join('');
   $('rsOwner').innerHTML=opt('',`Tous les maîtres d’ouvrage (${owners.length})`,f.owner)+owners.map(o=>opt(o,o,f.owner)).join('');
   const st=researchStats(researchSelected(),g), N=st.rows.length, n=v=>v.toLocaleString('fr-FR');
-  { const pr=verificationProgress(verificationItems(researchSelected(true),g,state.verif)); $('nVerif').textContent=pr.todo?`(${pr.todo.toLocaleString('fr-FR')})`:''; }
+  { const it=verificationItems(researchSelected(true),g,state.verif); for(const [m,id] of [['oui','nVerif'],['partiel','nTrancher']]){ const pr=verificationProgress(it.filter(i=>i.status===m)); $(id).textContent=pr.todo?`(${pr.todo.toLocaleString('fr-FR')})`:''; } }
   const notSf=st.rows.filter(o=>!o.inSf).length;
   box.innerHTML=`<div class="rs-kpis"><div class="rs-kpi"><b>${n(N)}</b><span>opération(s) analysée(s) avec « ${esc(g.name||g.id)} »${notSf?` · ${notSf} hors Tous contrats`:''}</span></div>
     <div class="rs-kpi"><b>${n(new Set(st.rows.map(o=>o.owner)).size)}</b><span>maître(s) d’ouvrage</span></div>
-    ${(()=>{ const pr=verificationProgress(verificationItems(researchSelected(true),g,state.verif)); return pr.total?`<div class="rs-kpi"><b>${n(pr.ok+pr.ko+pr.pa+pr.so)} / ${n(pr.total)}</b><span>« Oui » vérifiés (${n(pr.ok)} acceptés · ${n(pr.pa)} partiels · ${n(pr.ko)} rejetés · ${n(pr.so)} sans objet)</span></div>`:''; })()}
+    ${(()=>{ const it=verificationItems(researchSelected(true),g,state.verif); return ['oui','partiel'].map(m=>{ const pr=verificationProgress(it.filter(i=>i.status===m)); return pr.total?`<div class="rs-kpi"><b>${n(pr.ok+pr.ko+pr.pa+pr.so)} / ${n(pr.total)}</b><span>${VF_MODE[m].what} (${n(pr.ok)} oui · ${n(pr.pa)} partiels · ${n(pr.ko)} non · ${n(pr.so)} sans objet)</span></div>`:''; }).join(''); })()}
     ${st.themes.map(x=>`<div class="rs-kpi"><b>${pct1(x.ok,x.applicable)} %</b><span>${esc(x.t.name)} : indices suffisants (${x.ok} / ${x.applicable})</span></div>`).join('')}</div>
   ${N?st.themes.map(x=>`<section class="rs-theme"><h3>${esc(x.t.name)}</h3><p class="muted">${x.applicable} opération(s) concernée(s) · minimum ${Number(x.t.min)||0} critère(s)</p>
     <div class="rs-legend"><span><i style="background:var(--et)"></i>Indice trouvé</span><span><i style="background:var(--rust)"></i>Indice contraire / hors seuil</span></div>
@@ -303,9 +303,12 @@ function exportResearchCsv(){
 }
 
 /* ---------- Vérification des « Oui » : tableau ou cartes à glisser (accepter / rejeter) ---------- */
-const vf={view:'table',crit:'',status:'todo',limit:150,idx:0,history:[]};
+// 18/11/2026 — deux options distinctes : « oui » = contrôle manuel des exigences validées par ExtracTerre ; « partiel » = décision
+// sur les éléments qu'ExtracTerre n'a pas pu trancher. Mêmes décisions enregistrées (clé inchangée), simple filtre par statut.
+const VF_MODE={oui:{title:'Contrôle des exigences validées',btn:'Contrôler les « Oui »',what:'« Oui » contrôlés'},partiel:{title:'Éléments à trancher',btn:'Trancher les « Partiel »',what:'« Partiel » tranchés'}};
+const vf={mode:'oui',view:'table',crit:'',status:'todo',limit:150,idx:0,history:[]};
 function verifData(){ const {grids}=researchData(), g=grids.find(x=>x.id===state.rs.grid); if(!g) return {g:null,all:[],list:[]};
-  const all=verificationItems(researchSelected(true),g,state.verif);
+  const all=verificationItems(researchSelected(true),g,state.verif).filter(i=>i.status===vf.mode);
   const list=all.filter(i=>(!vf.crit||i.crit.id===vf.crit)&&(vf.status==='all'||(vf.status==='todo'?!i.decision:i.decision===vf.status)));
   return {g,all,list}; }
 // Texte de la preuve avec les passages qui ont déclenché le critère (mots-clés) et les mots de contexte surlignés.
@@ -319,6 +322,7 @@ function setDecision(key,d){ const prev=state.verif[key]?.d||''; if(d===prev||!d
 function renderVerif(){
   const {g,all,list}=verifData(), body=$('verifBody');
   if(!g){ body.innerHTML='<p class="muted">Aucune grille de recherche chargée.</p>'; return; }
+  $('verifTitle').textContent=VF_MODE[vf.mode].title; document.querySelectorAll('#verifDlg [data-mode]').forEach(b=>b.setAttribute('aria-checked',String(b.dataset.mode===vf.mode)));
   $('verifSub').textContent=`${g.name||g.id} · ${researchSelected(true).filter(o=>o.searches[g.id]).length.toLocaleString('fr-FR')} opération(s) de la sélection de l’onglet Recherches`;
   const crits=(g.criteria||[]).filter(c=>all.some(i=>i.crit.id===c.id)), cnt=id=>all.filter(i=>i.crit.id===id&&!i.decision).length;
   if(vf.crit&&!crits.some(c=>c.id===vf.crit)) vf.crit='';
@@ -362,8 +366,10 @@ function cardDecide(d){ const {list}=verifData(), i=list[vf.idx]; if(!i) return;
   setTimeout(()=>{ if(vf.status!=='todo') vf.idx++; renderVerif(); },200); }
 function cardUndo(){ const h=vf.history.pop(); if(!h) return; if(h.prev) state.verif[h.key]={d:h.prev,at:new Date().toISOString()}; else delete state.verif[h.key]; saveVerif();
   const {list}=verifData(), k=list.findIndex(i=>i.key===h.key); if(k>=0) vf.idx=k; renderVerif(); }
-function openVerif(){ vf.idx=0; vf.history=[]; vf.limit=150; renderVerif(); $('verifDlg').showModal(); }
-$('rsVerif').addEventListener('click',openVerif);
+function openVerif(mode){ if(mode) vf.mode=mode; vf.idx=0; vf.history=[]; vf.limit=150; renderVerif(); $('verifDlg').showModal(); }
+$('rsVerif').addEventListener('click',()=>openVerif('oui'));
+$('rsTrancher').addEventListener('click',()=>openVerif('partiel'));
+document.querySelectorAll('#verifDlg [data-mode]').forEach(b=>b.addEventListener('click',()=>{ vf.mode=b.dataset.mode; vf.crit=''; vf.idx=0; vf.limit=150; vf.history=[]; renderVerif(); }));
 $('verifClose').addEventListener('click',()=>$('verifDlg').close());
 $('verifDlg').addEventListener('close',()=>renderResearch());
 $('vfCrit').addEventListener('change',e=>{ vf.crit=e.target.value; vf.idx=0; vf.limit=150; renderVerif(); });
