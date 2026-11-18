@@ -1,5 +1,5 @@
-import {REL_ORDER,REL_LABEL,relKey,recoll,opsFromSession,opsFromBuildingRows,CONTRACT_COL,OPE_COL,STATUS_COL,BUILDING_COL,KINDS,TECH_LABELS,targetColumn,empty,anruIndex,ANRU_COL,ANRU_QP_COL,confortOf,oddValue,COLUMN_KEY,sortRowIndexes,ZONES,zoneOfDep,depOfRow,confortStats,SYSTEMS,DH_ZT,DH_ZNT,publishTable,researchFromSession,mergeResearch,researchRows,researchStats,NO_REF} from './recoll.js?v=18';
-import {verificationItems,verifiedSearch,verificationProgress,highlightRanges} from './recoll.js?v=18';
+import {REL_ORDER,REL_LABEL,relKey,recoll,opsFromSession,opsFromBuildingRows,CONTRACT_COL,OPE_COL,STATUS_COL,BUILDING_COL,KINDS,TECH_LABELS,targetColumn,empty,anruIndex,ANRU_COL,ANRU_QP_COL,confortOf,oddValue,COLUMN_KEY,sortRowIndexes,ZONES,zoneOfDep,depOfRow,confortStats,SYSTEMS,DH_ZT,DH_ZNT,publishTable,researchFromSession,mergeResearch,researchRows,researchStats,NO_REF} from './recoll.js?v=19';
+import {verificationItems,verifiedSearch,verificationProgress,highlightRanges} from './recoll.js?v=19';
 
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -278,7 +278,7 @@ function renderResearch(){
   const notSf=st.rows.filter(o=>!o.inSf).length;
   box.innerHTML=`<div class="rs-kpis"><div class="rs-kpi"><b>${n(N)}</b><span>opération(s) analysée(s) avec « ${esc(g.name||g.id)} »${notSf?` · ${notSf} hors Tous contrats`:''}</span></div>
     <div class="rs-kpi"><b>${n(new Set(st.rows.map(o=>o.owner)).size)}</b><span>maître(s) d’ouvrage</span></div>
-    ${(()=>{ const pr=verificationProgress(verificationItems(researchSelected(true),g,state.verif)); return pr.total?`<div class="rs-kpi"><b>${n(pr.ok+pr.ko)} / ${n(pr.total)}</b><span>« Oui » vérifiés (${n(pr.ok)} acceptés · ${n(pr.ko)} rejetés)</span></div>`:''; })()}
+    ${(()=>{ const pr=verificationProgress(verificationItems(researchSelected(true),g,state.verif)); return pr.total?`<div class="rs-kpi"><b>${n(pr.ok+pr.ko+pr.pa)} / ${n(pr.total)}</b><span>« Oui » vérifiés (${n(pr.ok)} acceptés · ${n(pr.pa)} partiels · ${n(pr.ko)} rejetés)</span></div>`:''; })()}
     ${st.themes.map(x=>`<div class="rs-kpi"><b>${pct1(x.ok,x.applicable)} %</b><span>${esc(x.t.name)} : indices suffisants (${x.ok} / ${x.applicable})</span></div>`).join('')}</div>
   ${N?st.themes.map(x=>`<section class="rs-theme"><h3>${esc(x.t.name)}</h3><p class="muted">${x.applicable} opération(s) concernée(s) · minimum ${Number(x.t.min)||0} critère(s)</p>
     <div class="rs-legend"><span><i style="background:var(--et)"></i>Indice trouvé</span><span><i style="background:var(--rust)"></i>Indice contraire / hors seuil</span></div>
@@ -309,8 +309,8 @@ const markHtml=(text,crit)=>{ const t=String(text||''), rs=highlightRanges(t,cri
 const evHtml=(e,crit)=>`<div class="ev"><div class="ev-src">${esc(e.doc||'Document non précisé')}${e.page!==''&&e.page!=null?` · p. ${esc(String(e.page))}`:''}</div><div class="ev-line">${markHtml(e.line,crit)}</div>${e.ctx&&e.ctx.trim()!==String(e.line||'').trim()?`<div class="ev-ctx">${markHtml(e.ctx,crit)}</div>`:''}</div>`;
 const reqHtml=i=>`<div class="req-label">${esc(i.crit.label)}</div><div class="req-meta">${esc(i.crit.theme||'')} · réponse : <b>${i.status==='partiel'?'Partiel':'Oui'}</b>${i.manual?' (saisie manuelle dans ExtracTerre)':''}${i.value&&!/^Oui$/i.test(String(i.value))?` · ${esc(String(i.value))}`:''}</div>${i.crit.description?`<div class="req-desc">${esc(i.crit.description)}</div>`:''}`;
 const opHtml=o=>`<b>${esc(o.contract||o.ope||'—')}</b> ${esc(o.name)}<small>${esc(o.owner)} · ${esc(o.refs.join(' / '))}</small>`;
-function verifProgress(all){ const p=verificationProgress(all), pc=p.total?Math.round((p.ok+p.ko)/p.total*100):0;
-  $('verifProgress').innerHTML=`<div class="vp-bar" role="progressbar" aria-label="Avancement de la vérification" aria-valuenow="${pc}" aria-valuemin="0" aria-valuemax="100"><span class="ok" style="width:${p.total?p.ok/p.total*100:0}%"></span><span class="ko" style="width:${p.total?p.ko/p.total*100:0}%"></span></div><small>${(p.ok+p.ko).toLocaleString('fr-FR')} / ${p.total.toLocaleString('fr-FR')} vérifiés · ✓ ${p.ok.toLocaleString('fr-FR')} · ✗ ${p.ko.toLocaleString('fr-FR')}</small>`; }
+function verifProgress(all){ const p=verificationProgress(all), pc=p.total?Math.round((p.ok+p.ko+p.pa)/p.total*100):0;
+  $('verifProgress').innerHTML=`<div class="vp-bar" role="progressbar" aria-label="Avancement de la vérification" aria-valuenow="${pc}" aria-valuemin="0" aria-valuemax="100"><span class="ok" style="width:${p.total?p.ok/p.total*100:0}%"></span><span class="pa" style="width:${p.total?p.pa/p.total*100:0}%"></span><span class="ko" style="width:${p.total?p.ko/p.total*100:0}%"></span></div><small>${(p.ok+p.ko+p.pa).toLocaleString('fr-FR')} / ${p.total.toLocaleString('fr-FR')} vérifiés · ✓ ${p.ok.toLocaleString('fr-FR')} · ◐ ${p.pa.toLocaleString('fr-FR')} · ✗ ${p.ko.toLocaleString('fr-FR')}</small>`; }
 function setDecision(key,d){ const prev=state.verif[key]?.d||''; if(d===prev||!d) delete state.verif[key]; else state.verif[key]={d,at:new Date().toISOString()}; saveVerif(); return prev; }
 function renderVerif(){
   const {g,all,list}=verifData(), body=$('verifBody');
@@ -326,7 +326,7 @@ function renderVerif(){
   const rows=list.slice(0,vf.limit);
   body.innerHTML=`<div class="scroll"><table class="grid verif-table"><thead><tr><th scope="col">Opération</th><th scope="col">Exigence</th><th scope="col">Vérification (preuve et source)</th><th scope="col">Décision</th></tr></thead><tbody>
     ${rows.map(i=>`<tr data-key="${esc(i.key)}" class="${i.decision?'d-'+i.decision:''}"><td class="v-op">${opHtml(i.op)}</td><td class="v-req">${reqHtml(i)}</td><td class="v-ev">${i.evidence.map(e=>evHtml(e,i.crit)).join('')||'<span class="muted">Aucune preuve exportée</span>'}</td>
-      <td class="v-dec"><button type="button" class="vbtn ok${i.decision==='ok'?' on':''}" data-d="ok" aria-pressed="${i.decision==='ok'}">✓ Accepter</button><button type="button" class="vbtn ko${i.decision==='ko'?' on':''}" data-d="ko" aria-pressed="${i.decision==='ko'}">✗ Rejeter</button></td></tr>`).join('')}</tbody></table></div>
+      <td class="v-dec"><button type="button" class="vbtn ok${i.decision==='ok'?' on':''}" data-d="ok" aria-pressed="${i.decision==='ok'}">✓ Accepter</button><button type="button" class="vbtn pa${i.decision==='pa'?' on':''}" data-d="pa" aria-pressed="${i.decision==='pa'}">◐ Partiel</button><button type="button" class="vbtn ko${i.decision==='ko'?' on':''}" data-d="ko" aria-pressed="${i.decision==='ko'}">✗ Rejeter</button></td></tr>`).join('')}</tbody></table></div>
     ${list.length>rows.length?`<p class="verif-more"><button class="btn quiet small" type="button" id="vfMore">Afficher ${Math.min(150,list.length-rows.length)} de plus (${(list.length-rows.length).toLocaleString('fr-FR')} restantes)</button></p>`:''}`;
 }
 function renderVerifCard(list){
@@ -334,7 +334,7 @@ function renderVerifCard(list){
   const q=String(i.crit.label||'').replace(/\s*\(condition\)\s*$/i,'').replace(/[.\s]+$/,'');
   $('verifBody').innerHTML=`<div class="vcard-wrap"><p class="vcard-count">${vf.idx+1} / ${list.length.toLocaleString('fr-FR')} à vérifier</p>
     <article class="vcard ${i.decision?'d-'+i.decision:''}" id="vcard" data-key="${esc(i.key)}" tabindex="0" aria-label="Carte à glisser : à droite pour Oui, à gauche pour Non">
-      <div class="vstamp ok" aria-hidden="true">OUI</div><div class="vstamp ko" aria-hidden="true">NON</div>
+      <div class="vstamp ok" aria-hidden="true">OUI</div><div class="vstamp ko" aria-hidden="true">NON</div><div class="vstamp pa" aria-hidden="true">PARTIEL</div>
       <p class="vc-op">${esc(i.op.contract||i.op.ope||'—')} · ${esc(i.op.name)}</p>
       <h3 class="vc-q">${esc(q)} ?</h3>
       ${i.status==='partiel'?'<p class="vc-partial">Réponse ExtracTerre : Partiel</p>':''}
@@ -343,16 +343,17 @@ function renderVerifCard(list){
       ${(e&&e.ctx&&e.ctx.trim()!==String(e.line||'').trim())||more.length||i.crit.description?`<details class="vc-more"><summary>Contexte${more.length?` · ${more.length} autre(s) preuve(s)`:''}${i.crit.description?' · précision de l’exigence':''}</summary>
         ${i.crit.description?`<p class="vc-desc">${esc(i.crit.description)}</p>`:''}${e&&e.ctx?`<p class="vc-ctx">${markHtml(e.ctx,i.crit)}</p>`:''}${more.map(x=>evHtml(x,i.crit)).join('')}</details>`:''}
     </article>
-    <div class="vcard-actions"><button type="button" class="vbig ko" data-card="ko">✗ Non</button><button type="button" class="btn quiet small" data-card="undo"${vf.history.length?'':' disabled'}>↶ Annuler</button><button type="button" class="vbig ok" data-card="ok">✓ Oui</button></div>
-    <p class="muted small vcard-help">Glisser à droite = Oui · à gauche = Non · clavier → / ← · Retour arrière = annuler</p></div>`;
-  const card=$('vcard'); let x0=null,dx=0; card.focus({preventScroll:true});
-  card.addEventListener('pointerdown',e=>{ if(e.target.closest('a,button,summary,details')) return; x0=e.clientX; dx=0; card.setPointerCapture(e.pointerId); card.classList.add('drag'); });
-  card.addEventListener('pointermove',e=>{ if(x0===null) return; dx=e.clientX-x0; card.style.transform=`translateX(${dx}px) rotate(${dx/22}deg)`; card.dataset.swipe=dx>40?'ok':dx<-40?'ko':''; });
-  const end=()=>{ if(x0===null) return; x0=null; card.classList.remove('drag'); if(Math.abs(dx)>110) cardDecide(dx>0?'ok':'ko'); else { card.style.transform=''; card.dataset.swipe=''; } };
+    <div class="vcard-actions"><button type="button" class="vbig ko" data-card="ko">✗ Non</button><button type="button" class="vbig pa" data-card="pa">◐ Partiel</button><button type="button" class="vbig ok" data-card="ok">✓ Oui</button></div>
+    <p class="vcard-undo"><button type="button" class="btn quiet small" data-card="undo"${vf.history.length?'':' disabled'}>↶ Annuler la dernière décision</button></p>
+    <p class="muted small vcard-help">Glisser à droite = Oui · à gauche = Non · vers le haut = Partiel · clavier → ← ↑ · Retour arrière = annuler</p></div>`;
+  const card=$('vcard'); let x0=null,y0=0,dx=0,dy=0; card.focus({preventScroll:true});
+  card.addEventListener('pointerdown',e=>{ if(e.target.closest('a,button,summary,details')) return; x0=e.clientX; y0=e.clientY; dx=0; dy=0; card.setPointerCapture(e.pointerId); card.classList.add('drag'); });
+  card.addEventListener('pointermove',e=>{ if(x0===null) return; dx=e.clientX-x0; dy=e.clientY-y0; const up=dy<-40&&Math.abs(dy)>Math.abs(dx); card.style.transform=up?`translateY(${dy}px)`:`translateX(${dx}px) rotate(${dx/22}deg)`; card.dataset.swipe=up?'pa':dx>40?'ok':dx<-40?'ko':''; });
+  const end=()=>{ if(x0===null) return; x0=null; card.classList.remove('drag'); if(dy<-110&&Math.abs(dy)>Math.abs(dx)) cardDecide('pa'); else if(Math.abs(dx)>110) cardDecide(dx>0?'ok':'ko'); else { card.style.transform=''; card.dataset.swipe=''; } };
   card.addEventListener('pointerup',end); card.addEventListener('pointercancel',end);
 }
 function cardDecide(d){ const {list}=verifData(), i=list[vf.idx]; if(!i) return; const prev=state.verif[i.key]?.d||''; if(prev!==d) setDecision(i.key,d); vf.history.push({key:i.key,prev});
-  const card=$('vcard'); if(card){ card.style.transition='transform .22s ease-out,opacity .22s'; card.style.transform=`translateX(${d==='ok'?600:-600}px) rotate(${d==='ok'?18:-18}deg)`; card.style.opacity='0'; }
+  const card=$('vcard'); if(card){ card.style.transition='transform .22s ease-out,opacity .22s'; card.style.transform=d==='pa'?'translateY(-500px)':`translateX(${d==='ok'?600:-600}px) rotate(${d==='ok'?18:-18}deg)`; card.style.opacity='0'; }
   setTimeout(()=>{ if(vf.status!=='todo') vf.idx++; renderVerif(); },200); }
 function cardUndo(){ const h=vf.history.pop(); if(!h) return; if(h.prev) state.verif[h.key]={d:h.prev,at:new Date().toISOString()}; else delete state.verif[h.key]; saveVerif();
   const {list}=verifData(), k=list.findIndex(i=>i.key===h.key); if(k>=0) vf.idx=k; renderVerif(); }
@@ -369,13 +370,13 @@ $('verifBody').addEventListener('click',e=>{
   const b=e.target.closest('.vbtn'); if(!b) return; const tr=b.closest('tr'), key=tr.dataset.key; setDecision(key,b.dataset.d); const d=state.verif[key]?.d||'';
   tr.className=d?'d-'+d:''; tr.querySelectorAll('.vbtn').forEach(x=>{ const on=x.dataset.d===d; x.classList.toggle('on',on); x.setAttribute('aria-pressed',String(on)); }); verifProgress(verifData().all); });
 $('verifDlg').addEventListener('keydown',e=>{ if(vf.view!=='cards'||e.target.closest('select,input')) return;
-  if(e.key==='ArrowRight'){ e.preventDefault(); cardDecide('ok'); } else if(e.key==='ArrowLeft'){ e.preventDefault(); cardDecide('ko'); } else if(e.key==='Backspace'){ e.preventDefault(); cardUndo(); } });
+  if(e.key==='ArrowRight'){ e.preventDefault(); cardDecide('ok'); } else if(e.key==='ArrowLeft'){ e.preventDefault(); cardDecide('ko'); } else if(e.key==='ArrowUp'){ e.preventDefault(); cardDecide('pa'); } else if(e.key==='Backspace'){ e.preventDefault(); cardUndo(); } });
 $('vfExport').addEventListener('click',()=>{ const blob=new Blob([JSON.stringify({format:'totalrecoll-verifications',version:1,exportedAt:new Date().toISOString(),decisions:state.verif},null,1)],{type:'application/json'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`TotalRecoll_verifications_${new Date().toISOString().slice(0,10)}.json`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
   toast(`${Object.keys(state.verif).length} décision(s) exportée(s).`,'success'); });
 $('vfImport').addEventListener('change',async e=>{ const f=e.target.files?.[0]; if(!f) return;
   try{ const j=JSON.parse(await f.text()); if(j?.format!=='totalrecoll-verifications'||typeof j.decisions!=='object') throw new Error('Ce fichier n’est pas un export de vérifications TotalRecoll.');
-    let n=0; for(const [k,v] of Object.entries(j.decisions)){ if(!v||!['ok','ko'].includes(v.d)) continue; const cur=state.verif[k]; if(!cur||String(v.at||'')>=String(cur.at||'')){ state.verif[k]=v; n++; } }
+    let n=0; for(const [k,v] of Object.entries(j.decisions)){ if(!v||!['ok','ko','pa'].includes(v.d)) continue; const cur=state.verif[k]; if(!cur||String(v.at||'')>=String(cur.at||'')){ state.verif[k]=v; n++; } }
     saveVerif(); renderVerif(); toast(`${n} décision(s) reprise(s).`,'success'); }catch(err){ toast(err.message||String(err),'error'); }
   e.target.value=''; });
 

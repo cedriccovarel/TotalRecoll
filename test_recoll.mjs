@@ -256,7 +256,9 @@ console.log('Carte confort d’été (zones climatiques) OK');
   const v=verifiedSearch(o,grid,dec); assert.equal(v.criteria.p_present.found,false); assert.equal(v.themes.Parkings.applicable,false,'parking rejeté → thème non applicable');
   const v2=verifiedSearch(o,grid,{[verifKey(o,'g','p_portail')]:{d:'ko'}}); assert.equal(v2.themes.Parkings.ok,false,'critère obligatoire rejeté → thème insuffisant');
   assert.equal(verifiedSearch(o,grid,{[verifKey(o,'g','p_badge')]:{d:'ok'}}).criteria.p_badge.verified,true);
-  it=verificationItems([o],grid,dec); assert.deepEqual(verificationProgress(it),{total:3,ok:0,ko:1,todo:2});
+  it=verificationItems([o],grid,dec); assert.deepEqual(verificationProgress(it),{total:3,ok:0,ko:1,pa:0,todo:2});
+  { const v3=verifiedSearch(o,grid,{[verifKey(o,'g','p_portail')]:{d:'pa'}}); assert.equal(v3.criteria.p_portail.partial,true); assert.equal(v3.criteria.p_portail.found,false); assert.equal(v3.themes.Parkings.ok,false,'partiel ne compte pas comme trouvé');
+    assert.deepEqual(verificationProgress(verificationItems([o],grid,{[verifKey(o,'g','p_badge')]:{d:'pa'}})),{total:3,ok:0,ko:0,pa:1,todo:2}); }
   console.log('Vérification des Oui OK'); }
 { const {highlightRanges}=await import('./recoll.js');
   const crit={keywords:['re:portail[^\\n]{0,40}(?:parking|sous[- ]sol|garage)'],context:['telecommande','badge']};

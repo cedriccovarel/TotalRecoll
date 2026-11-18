@@ -390,6 +390,8 @@ export function verifiedSearch(o,grid,decisions={}){
   let changed=false; const criteria={};
   for(const [cid,x] of Object.entries(s.criteria||{})){ const d=decisions[verifKey(o,grid.id,cid)]?.d;
     if(d==='ko'&&(x.found||x.partial)){ criteria[cid]={...x,found:false,partial:false,rejected:true,value:'Rejeté à la vérification'}; changed=true; }
+    // « Partiel » (vérifié) : comme dans ExtracTerre, ne compte pas comme trouvé pour le thème, mais n'est pas un Non.
+    else if(d==='pa'&&(x.found||x.partial)){ criteria[cid]={...x,found:false,partial:true,verified:true,value:'Partiel (vérifié)'}; changed=true; }
     else criteria[cid]=d==='ok'?{...x,verified:true}:x; }
   if(!changed) return {...s,criteria};
   const themes={};
@@ -398,7 +400,7 @@ export function verifiedSearch(o,grid,decisions={}){
     themes[t.name]={...(s.themes?.[t.name]||{}),applicable,found,min:t.min,required:req.length,requiredOk,ok:applicable?(requiredOk&&found>=(Number(t.min)||0)):null}; }
   return {...s,criteria,themes};
 }
-export function verificationProgress(items){ const ok=items.filter(i=>i.decision==='ok').length, ko=items.filter(i=>i.decision==='ko').length; return {total:items.length,ok,ko,todo:items.length-ok-ko}; }
+export function verificationProgress(items){ const ok=items.filter(i=>i.decision==='ok').length, ko=items.filter(i=>i.decision==='ko').length, pa=items.filter(i=>i.decision==='pa').length; return {total:items.length,ok,ko,pa,todo:items.length-ok-ko-pa}; }
 
 /* Surlignage d'une preuve : passages qui ont déclenché le critère (mots-clés de la grille, kind 'k') et mots de contexte
    (kind 'c'). Même normalisation qu'ExtracTerre (sans accents ni casse, apostrophes = espace), caractère par caractère pour

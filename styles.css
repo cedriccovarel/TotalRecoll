@@ -384,3 +384,12 @@ mark.hl-c{background:transparent;color:var(--et-ink);text-decoration:underline;t
 @media (max-width:720px){ .vcard .vc-q{font-size:23px} .vc-quote{font-size:18px;padding:12px 14px} }
 .vcard:focus,.vcard:focus-visible{outline:2px dashed var(--ink-3);outline-offset:4px}
 .vbig{font-size:20px;padding:16px 18px}
+/* « Partiel » (18/11/2026) */
+.vp-bar .pa{background:var(--check)}
+.vbtn.pa:hover,.vbtn.pa.on{border-color:var(--check);color:var(--check)}.vbtn.pa.on{background:var(--check-wash)}
+.verif-table tr.d-pa td{background:rgba(245,213,71,.06)}
+.vbig.pa{background:var(--check-wash);border-color:var(--check);color:var(--check)}
+.vstamp.pa{left:50%;top:14px;transform:translateX(-50%);color:var(--check);border-color:var(--check)}
+.vcard[data-swipe="pa"] .vstamp.pa{opacity:1}
+.vcard.d-pa{box-shadow:0 0 0 2px var(--check)}
+.vcard-undo{text-align:center;margin:10px 0 0}

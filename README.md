@@ -39,7 +39,8 @@ Colonnes **ANRU** (Oui / Non) et **Quartier ANRU** ajoutées avant « Recollemen
 Bouton **✔ Vérifier les « Oui »** : chaque réponse Oui / Partiel d'un critère de la grille choisie (sélection de l'onglet
 Recherches) est montrée avec son **exigence** et sa **vérification** (document, page, ligne lue et contexte, pour contrôler à la
 main dans la source). Deux affichages : **Tableau** (boutons Accepter / Rejeter) ou **Cartes** à glisser (droite = Oui,
-gauche = Non ; clavier → / ← ; Retour arrière = annuler). Filtres par critère et par statut (à vérifier, acceptés, rejetés).
-Une réponse rejetée ne compte plus comme trouvée : statistiques, thèmes (recalculés) et CSV. Les décisions sont gardées dans le
+gauche = Non, vers le haut = Partiel ; clavier → ← ↑ ; Retour arrière = annuler). Filtres par critère et par statut (à vérifier, acceptés, rejetés).
+Une réponse rejetée ne compte plus comme trouvée ; une réponse « Partiel » est gardée comme partielle (comme dans ExtracTerre, elle
+ne compte pas comme trouvée pour le thème) : statistiques, thèmes (recalculés) et CSV. Les décisions sont gardées dans le
 navigateur et s'exportent / s'importent en fichier JSON (sauvegarde, partage). Le contexte des preuves vient des sessions
 exportées par ExtracTerre 3.0.4 ou plus récent.
