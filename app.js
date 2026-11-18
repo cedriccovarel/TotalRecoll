@@ -1,5 +1,5 @@
-import {REL_ORDER,REL_LABEL,relKey,recoll,opsFromSession,opsFromBuildingRows,CONTRACT_COL,OPE_COL,STATUS_COL,BUILDING_COL,KINDS,TECH_LABELS,targetColumn,empty,anruIndex,ANRU_COL,ANRU_QP_COL,confortOf,oddValue,COLUMN_KEY,sortRowIndexes,ZONES,zoneOfDep,depOfRow,confortStats,SYSTEMS,DH_ZT,DH_ZNT,publishTable,researchFromSession,mergeResearch,researchRows,researchStats,NO_REF} from './recoll.js?v=21';
-import {verificationItems,verifiedSearch,verificationProgress,highlightRanges} from './recoll.js?v=21';
+import {REL_ORDER,REL_LABEL,relKey,recoll,opsFromSession,opsFromBuildingRows,CONTRACT_COL,OPE_COL,STATUS_COL,BUILDING_COL,KINDS,TECH_LABELS,targetColumn,empty,anruIndex,ANRU_COL,ANRU_QP_COL,confortOf,oddValue,COLUMN_KEY,sortRowIndexes,ZONES,zoneOfDep,depOfRow,confortStats,SYSTEMS,DH_ZT,DH_ZNT,publishTable,researchFromSession,mergeResearch,researchRows,researchStats,NO_REF} from './recoll.js?v=22';
+import {verificationItems,verifiedSearch,verificationProgress,highlightRanges} from './recoll.js?v=22';
 
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));

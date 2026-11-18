@@ -397,9 +397,10 @@ export function verifiedSearch(o,grid,decisions={}){
   const s=o.searches?.[grid.id]; if(!s) return s;
   let changed=false; const criteria={};
   for(const [cid,x] of Object.entries(s.criteria||{})){ const d=decisions[verifKey(o,grid.id,cid)]?.d;
-    if(d==='ko'&&(x.found||x.partial)){ criteria[cid]={...x,found:false,partial:false,rejected:true,value:'Rejeté à la vérification'}; changed=true; }
-    // « Sans objet » : la phrase n'a pas de lien avec l'exigence (fausse détection) — ne compte pas comme trouvé, noté à part.
-    else if(d==='so'&&(x.found||x.partial)){ criteria[cid]={...x,found:false,partial:false,rejected:true,offTopic:true,value:'Phrase sans objet (vérification)'}; changed=true; }
+    // « Non » : la phrase est bien liée à l'exigence mais ne la remplit pas → indice contraire (non conforme).
+    if(d==='ko'&&(x.found||x.partial)){ criteria[cid]={...x,found:false,partial:false,contrary:true,rejected:true,value:'Non conforme (vérification)'}; changed=true; }
+        // « Sans objet » : compté comme nul (ni trouvé, ni contraire), comme si la phrase n'avait pas été lue.
+    else if(d==='so'&&(x.found||x.partial)){ criteria[cid]={...x,found:false,partial:false,contrary:false,rejected:true,offTopic:true,value:''}; changed=true; }
     // « Partiel » (vérifié) : comme dans ExtracTerre, ne compte pas comme trouvé pour le thème, mais n'est pas un Non.
     else if(d==='pa'&&(x.found||x.partial)){ criteria[cid]={...x,found:false,partial:true,verified:true,value:'Partiel (vérifié)'}; changed=true; }
     else criteria[cid]=d==='ok'?{...x,verified:true}:x; }

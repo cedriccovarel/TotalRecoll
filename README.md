@@ -40,8 +40,8 @@ Bouton **✔ Vérifier les « Oui »** : chaque réponse Oui / Partiel d'un crit
 Recherches) est montrée avec son **exigence** et sa **vérification** (document, page, ligne lue et contexte, pour contrôler à la
 main dans la source). Deux affichages : **Tableau** (boutons Accepter / Rejeter) ou **Cartes** à glisser (droite = Oui,
 gauche = Non, vers le haut = Partiel, vers le bas = Sans objet ; clavier → ← ↑ ↓ ; Retour arrière = annuler). Filtres par critère et par statut (à vérifier, acceptés, rejetés).
-Une réponse rejetée ne compte plus comme trouvée ; « Sans objet » (la phrase n'a pas de lien avec l'exigence) non plus, notée à part
-pour corriger les règles ; une réponse « Partiel » est gardée comme partielle (comme dans ExtracTerre, elle
+Un « Non » compte comme indice contraire (non conforme à l'exigence) ; « Sans objet » (la phrase n'a pas de lien avec l'exigence)
+compte comme nul (ni trouvé, ni contraire), noté à part pour corriger les règles ; une réponse « Partiel » est gardée comme partielle (comme dans ExtracTerre, elle
 ne compte pas comme trouvée pour le thème) : statistiques, thèmes (recalculés) et CSV. Un Oui donné une fois dans une opération vaut pour les cartes en attente de la même opération qui portent sur le même
 critère ou montrent la même phrase (ex. 44.2 des fenêtres et du hall) : elles ne sont plus redemandées. Les décisions sont gardées dans le
 navigateur et s'exportent / s'importent en fichier JSON (sauvegarde, partage). Le contexte des preuves vient des sessions

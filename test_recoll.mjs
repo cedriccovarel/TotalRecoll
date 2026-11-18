@@ -253,7 +253,7 @@ console.log('Carte confort d’été (zones climatiques) OK');
   const o={contract:'00009999',ope:'',name:'Fictif',searches:{g:{criteria:{p_present:{found:true,evidence:[{doc:'CCTP.pdf',page:3,line:'parking en sous-sol',ok:true}]},p_portail:{found:true,evidence:[{doc:'CCTP.pdf',page:4,line:'portail motorise parking',ok:true}]},p_badge:{found:true,evidence:[{doc:'C.pdf',page:1,line:'sans badge',ok:false},{doc:'C.pdf',page:2,line:'lecteur vigik porte parking',ok:true}]}},themes:{Parkings:{applicable:true,found:1,ok:true}}}}};
   let it=verificationItems([o],grid,{}); assert.equal(it.length,3); assert.equal(it[2].evidence.length,1,'seules les preuves qui justifient le Oui');
   const dec={[verifKey(o,'g','p_present')]:{d:'ko'}};
-  const v=verifiedSearch(o,grid,dec); assert.equal(v.criteria.p_present.found,false); assert.equal(v.themes.Parkings.applicable,false,'parking rejeté → thème non applicable');
+  const v=verifiedSearch(o,grid,dec); assert.equal(v.criteria.p_present.found,false); assert.equal(v.criteria.p_present.contrary,true,'Non = indice contraire'); assert.equal(v.themes.Parkings.applicable,false,'parking rejeté → thème non applicable');
   const v2=verifiedSearch(o,grid,{[verifKey(o,'g','p_portail')]:{d:'ko'}}); assert.equal(v2.themes.Parkings.ok,false,'critère obligatoire rejeté → thème insuffisant');
   assert.equal(verifiedSearch(o,grid,{[verifKey(o,'g','p_badge')]:{d:'ok'}}).criteria.p_badge.verified,true);
   it=verificationItems([o],grid,dec); assert.deepEqual(verificationProgress(it),{total:3,ok:0,ko:1,pa:0,so:0,todo:2});
@@ -266,7 +266,7 @@ console.log('Carte confort d’été (zones climatiques) OK');
     assert.equal(it2.filter(i=>!i.decision).length,2,'seules les cartes Volets restent (même phrase / même critère validés d’office)');
     assert.equal(it2.find(i=>i.crit.id==='hall_vitrage').inherited,'Vitrage 44.2 des fenêtres');
     it2=verificationItems([op2],g2,{[verifKey(op2,'g','fen_442')]:{d:'pa'}}); assert.equal(it2.filter(i=>!i.decision).length,2,'un Partiel ne se propage pas'); }
-  { const vs=verifiedSearch(o,grid,{[verifKey(o,'g','p_badge')]:{d:'so'}}); assert.equal(vs.criteria.p_badge.found,false); assert.equal(vs.criteria.p_badge.offTopic,true);
+  { const vs=verifiedSearch(o,grid,{[verifKey(o,'g','p_badge')]:{d:'so'}}); assert.equal(vs.criteria.p_badge.found,false); assert.equal(vs.criteria.p_badge.offTopic,true); assert.equal(vs.criteria.p_badge.contrary,false,'Sans objet = nul'); assert.equal(vs.criteria.p_badge.value,'');
     assert.equal(verificationProgress(verificationItems([o],grid,{[verifKey(o,'g','p_badge')]:{d:'so'}})).so,1); }
   console.log('Vérification des Oui OK'); }
 { const {highlightRanges}=await import('./recoll.js');
