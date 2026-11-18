@@ -258,3 +258,10 @@ console.log('Carte confort d’été (zones climatiques) OK');
   assert.equal(verifiedSearch(o,grid,{[verifKey(o,'g','p_badge')]:{d:'ok'}}).criteria.p_badge.verified,true);
   it=verificationItems([o],grid,dec); assert.deepEqual(verificationProgress(it),{total:3,ok:0,ko:1,todo:2});
   console.log('Vérification des Oui OK'); }
+{ const {highlightRanges}=await import('./recoll.js');
+  const crit={keywords:['re:portail[^\\n]{0,40}(?:parking|sous[- ]sol|garage)'],context:['telecommande','badge']};
+  const t='Portail coulissant motorisé du parking avec ouverture par télécommande.';
+  const r=highlightRanges(t,crit); assert.deepEqual(r.map(x=>[t.slice(x.s,x.e),x.kind]),[['Portail coulissant motorisé du parking','k'],['télécommande','c']]);
+  assert.deepEqual(highlightRanges('rien à voir',crit),[]);
+  { const t2='Verrou automatique anti-relevage du tablier.'; assert.deepEqual(highlightRanges(t2,{keywords:['anti relevage'],context:[]}).map(x=>t2.slice(x.s,x.e)),['anti-relevage']); }
+  console.log('Surlignage des preuves OK'); }

@@ -1,5 +1,5 @@
-import {REL_ORDER,REL_LABEL,relKey,recoll,opsFromSession,opsFromBuildingRows,CONTRACT_COL,OPE_COL,STATUS_COL,BUILDING_COL,KINDS,TECH_LABELS,targetColumn,empty,anruIndex,ANRU_COL,ANRU_QP_COL,confortOf,oddValue,COLUMN_KEY,sortRowIndexes,ZONES,zoneOfDep,depOfRow,confortStats,SYSTEMS,DH_ZT,DH_ZNT,publishTable,researchFromSession,mergeResearch,researchRows,researchStats,NO_REF} from './recoll.js?v=17';
-import {verificationItems,verifiedSearch,verificationProgress} from './recoll.js?v=17';
+import {REL_ORDER,REL_LABEL,relKey,recoll,opsFromSession,opsFromBuildingRows,CONTRACT_COL,OPE_COL,STATUS_COL,BUILDING_COL,KINDS,TECH_LABELS,targetColumn,empty,anruIndex,ANRU_COL,ANRU_QP_COL,confortOf,oddValue,COLUMN_KEY,sortRowIndexes,ZONES,zoneOfDep,depOfRow,confortStats,SYSTEMS,DH_ZT,DH_ZNT,publishTable,researchFromSession,mergeResearch,researchRows,researchStats,NO_REF} from './recoll.js?v=18';
+import {verificationItems,verifiedSearch,verificationProgress,highlightRanges} from './recoll.js?v=18';
 
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -304,7 +304,9 @@ function verifData(){ const {grids}=researchData(), g=grids.find(x=>x.id===state
   const all=verificationItems(researchSelected(true),g,state.verif);
   const list=all.filter(i=>(!vf.crit||i.crit.id===vf.crit)&&(vf.status==='all'||(vf.status==='todo'?!i.decision:i.decision===vf.status)));
   return {g,all,list}; }
-const evHtml=e=>`<div class="ev"><div class="ev-src">${esc(e.doc||'Document non précisé')}${e.page!==''&&e.page!=null?` · p. ${esc(String(e.page))}`:''}</div><div class="ev-line">${esc(e.line||'')}</div>${e.ctx&&e.ctx.trim()!==String(e.line||'').trim()?`<div class="ev-ctx">${esc(e.ctx)}</div>`:''}</div>`;
+// Texte de la preuve avec les passages qui ont déclenché le critère (mots-clés) et les mots de contexte surlignés.
+const markHtml=(text,crit)=>{ const t=String(text||''), rs=highlightRanges(t,crit); let out='',k=0; for(const r of rs){ out+=esc(t.slice(k,r.s))+`<mark class="hl-${r.kind}">${esc(t.slice(r.s,r.e))}</mark>`; k=r.e; } return out+esc(t.slice(k)); };
+const evHtml=(e,crit)=>`<div class="ev"><div class="ev-src">${esc(e.doc||'Document non précisé')}${e.page!==''&&e.page!=null?` · p. ${esc(String(e.page))}`:''}</div><div class="ev-line">${markHtml(e.line,crit)}</div>${e.ctx&&e.ctx.trim()!==String(e.line||'').trim()?`<div class="ev-ctx">${markHtml(e.ctx,crit)}</div>`:''}</div>`;
 const reqHtml=i=>`<div class="req-label">${esc(i.crit.label)}</div><div class="req-meta">${esc(i.crit.theme||'')} · réponse : <b>${i.status==='partiel'?'Partiel':'Oui'}</b>${i.manual?' (saisie manuelle dans ExtracTerre)':''}${i.value&&!/^Oui$/i.test(String(i.value))?` · ${esc(String(i.value))}`:''}</div>${i.crit.description?`<div class="req-desc">${esc(i.crit.description)}</div>`:''}`;
 const opHtml=o=>`<b>${esc(o.contract||o.ope||'—')}</b> ${esc(o.name)}<small>${esc(o.owner)} · ${esc(o.refs.join(' / '))}</small>`;
 function verifProgress(all){ const p=verificationProgress(all), pc=p.total?Math.round((p.ok+p.ko)/p.total*100):0;
@@ -323,23 +325,28 @@ function renderVerif(){
   if(vf.view==='cards') return renderVerifCard(list);
   const rows=list.slice(0,vf.limit);
   body.innerHTML=`<div class="scroll"><table class="grid verif-table"><thead><tr><th scope="col">Opération</th><th scope="col">Exigence</th><th scope="col">Vérification (preuve et source)</th><th scope="col">Décision</th></tr></thead><tbody>
-    ${rows.map(i=>`<tr data-key="${esc(i.key)}" class="${i.decision?'d-'+i.decision:''}"><td class="v-op">${opHtml(i.op)}</td><td class="v-req">${reqHtml(i)}</td><td class="v-ev">${i.evidence.map(evHtml).join('')||'<span class="muted">Aucune preuve exportée</span>'}</td>
+    ${rows.map(i=>`<tr data-key="${esc(i.key)}" class="${i.decision?'d-'+i.decision:''}"><td class="v-op">${opHtml(i.op)}</td><td class="v-req">${reqHtml(i)}</td><td class="v-ev">${i.evidence.map(e=>evHtml(e,i.crit)).join('')||'<span class="muted">Aucune preuve exportée</span>'}</td>
       <td class="v-dec"><button type="button" class="vbtn ok${i.decision==='ok'?' on':''}" data-d="ok" aria-pressed="${i.decision==='ok'}">✓ Accepter</button><button type="button" class="vbtn ko${i.decision==='ko'?' on':''}" data-d="ko" aria-pressed="${i.decision==='ko'}">✗ Rejeter</button></td></tr>`).join('')}</tbody></table></div>
     ${list.length>rows.length?`<p class="verif-more"><button class="btn quiet small" type="button" id="vfMore">Afficher ${Math.min(150,list.length-rows.length)} de plus (${(list.length-rows.length).toLocaleString('fr-FR')} restantes)</button></p>`:''}`;
 }
 function renderVerifCard(list){
-  if(vf.idx>=list.length) vf.idx=Math.max(0,list.length-1); const i=list[vf.idx];
-  $('verifBody').innerHTML=`<div class="vcard-wrap"><p class="vcard-count">${vf.idx+1} / ${list.length.toLocaleString('fr-FR')}</p>
+  if(vf.idx>=list.length) vf.idx=Math.max(0,list.length-1); const i=list[vf.idx], e=i.evidence[0], more=i.evidence.slice(1);
+  const q=String(i.crit.label||'').replace(/\s*\(condition\)\s*$/i,'').replace(/[.\s]+$/,'');
+  $('verifBody').innerHTML=`<div class="vcard-wrap"><p class="vcard-count">${vf.idx+1} / ${list.length.toLocaleString('fr-FR')} à vérifier</p>
     <article class="vcard ${i.decision?'d-'+i.decision:''}" id="vcard" data-key="${esc(i.key)}" tabindex="0" aria-label="Carte à glisser : à droite pour Oui, à gauche pour Non">
       <div class="vstamp ok" aria-hidden="true">OUI</div><div class="vstamp ko" aria-hidden="true">NON</div>
-      <section><h3>Exigence</h3>${reqHtml(i)}</section>
-      <section><h3>Opération</h3><div class="v-op">${opHtml(i.op)}</div></section>
-      <section><h3>Vérification</h3>${i.evidence.map(evHtml).join('')||'<span class="muted">Aucune preuve exportée</span>'}<p class="muted small">Pour vérifier à la main : ouvrir le document à la page indiquée.</p></section>
+      <p class="vc-op">${esc(i.op.contract||i.op.ope||'—')} · ${esc(i.op.name)}</p>
+      <h3 class="vc-q">${esc(q)} ?</h3>
+      ${i.status==='partiel'?'<p class="vc-partial">Réponse ExtracTerre : Partiel</p>':''}
+      ${e?`<blockquote class="vc-quote">${markHtml(e.line,i.crit)}</blockquote>
+      <p class="vc-src">${esc(e.doc||'Document non précisé')}${e.page!==''&&e.page!=null?` · page ${esc(String(e.page))}`:''}</p>`:'<p class="vc-quote vc-none">Aucune preuve exportée</p>'}
+      ${(e&&e.ctx&&e.ctx.trim()!==String(e.line||'').trim())||more.length||i.crit.description?`<details class="vc-more"><summary>Contexte${more.length?` · ${more.length} autre(s) preuve(s)`:''}${i.crit.description?' · précision de l’exigence':''}</summary>
+        ${i.crit.description?`<p class="vc-desc">${esc(i.crit.description)}</p>`:''}${e&&e.ctx?`<p class="vc-ctx">${markHtml(e.ctx,i.crit)}</p>`:''}${more.map(x=>evHtml(x,i.crit)).join('')}</details>`:''}
     </article>
     <div class="vcard-actions"><button type="button" class="vbig ko" data-card="ko">✗ Non</button><button type="button" class="btn quiet small" data-card="undo"${vf.history.length?'':' disabled'}>↶ Annuler</button><button type="button" class="vbig ok" data-card="ok">✓ Oui</button></div>
-    <p class="muted small vcard-help">Glisser la carte à droite = Oui, à gauche = Non · clavier : → Oui, ← Non, Retour arrière = annuler</p></div>`;
+    <p class="muted small vcard-help">Glisser à droite = Oui · à gauche = Non · clavier → / ← · Retour arrière = annuler</p></div>`;
   const card=$('vcard'); let x0=null,dx=0; card.focus({preventScroll:true});
-  card.addEventListener('pointerdown',e=>{ if(e.target.closest('a,button')) return; x0=e.clientX; dx=0; card.setPointerCapture(e.pointerId); card.classList.add('drag'); });
+  card.addEventListener('pointerdown',e=>{ if(e.target.closest('a,button,summary,details')) return; x0=e.clientX; dx=0; card.setPointerCapture(e.pointerId); card.classList.add('drag'); });
   card.addEventListener('pointermove',e=>{ if(x0===null) return; dx=e.clientX-x0; card.style.transform=`translateX(${dx}px) rotate(${dx/22}deg)`; card.dataset.swipe=dx>40?'ok':dx<-40?'ko':''; });
   const end=()=>{ if(x0===null) return; x0=null; card.classList.remove('drag'); if(Math.abs(dx)>110) cardDecide(dx>0?'ok':'ko'); else { card.style.transform=''; card.dataset.swipe=''; } };
   card.addEventListener('pointerup',end); card.addEventListener('pointercancel',end);

@@ -361,3 +361,26 @@ dialog.verif::backdrop{background:rgba(8,3,2,.72)}
   .verif-tools,.verif-body{padding-left:16px;padding-right:16px}
   .vcard{padding:14px 16px}
 }
+
+/* Carte de décision lisible en une seconde (18/11/2026) : la question en très gros, la phrase lue en gros avec le passage
+   déclencheur surligné ; opération, source, contexte en petit (contexte et autres preuves repliés). */
+mark.hl-k{background:var(--check);color:#1d1600;border-radius:2px;padding:0 2px;box-decoration-break:clone;-webkit-box-decoration-break:clone}
+mark.hl-c{background:transparent;color:var(--et-ink);text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px}
+.vcard-wrap{max-width:780px}
+.vcard{padding:22px 28px 18px}
+.vc-op{margin:0 0 10px;font-size:13px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vcard .vc-q{margin:0 0 4px;font:700 28px/1.2 "Chakra Petch",ui-sans-serif,sans-serif;letter-spacing:0;text-transform:none;color:var(--ink)}
+.vc-partial{margin:4px 0 0;color:var(--check);font-weight:600}
+.vc-quote{margin:18px 0 8px;padding:14px 18px;border-left:4px solid var(--sf);background:var(--sunk);border-radius:0 6px 6px 0;font-size:21px;line-height:1.45;color:var(--ink)}
+.vc-none{color:var(--ink-3);font-size:16px}
+.vc-src{margin:0;font-size:13px;color:var(--sf-ink)}
+.vc-more{margin-top:12px;font-size:13px;color:var(--ink-2)}
+.vc-more summary{cursor:pointer;color:var(--ink-3)}
+.vc-more summary:hover{color:var(--ink)}
+.vc-ctx,.vc-desc{margin:8px 0;line-height:1.5}
+.vc-desc{color:var(--ink-3)}
+.vcard section+section{margin-top:0;padding-top:0;border-top:0}
+.vstamp{top:14px;font-size:26px}
+@media (max-width:720px){ .vcard .vc-q{font-size:23px} .vc-quote{font-size:18px;padding:12px 14px} }
+.vcard:focus,.vcard:focus-visible{outline:2px dashed var(--ink-3);outline-offset:4px}
+.vbig{font-size:20px;padding:16px 18px}

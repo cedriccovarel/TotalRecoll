@@ -399,3 +399,20 @@ export function verifiedSearch(o,grid,decisions={}){
   return {...s,criteria,themes};
 }
 export function verificationProgress(items){ const ok=items.filter(i=>i.decision==='ok').length, ko=items.filter(i=>i.decision==='ko').length; return {total:items.length,ok,ko,todo:items.length-ok-ko}; }
+
+/* Surlignage d'une preuve : passages qui ont déclenché le critère (mots-clés de la grille, kind 'k') et mots de contexte
+   (kind 'c'). Même normalisation qu'ExtracTerre (sans accents ni casse, apostrophes = espace), caractère par caractère pour
+   garder les positions du texte d'origine. */
+const hlNorm=s=>[...String(s||'')].map(ch=>{ const b=ch.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase(); return /[’'`]/.test(ch)?' ':(b.length===1?b:ch.toLowerCase().slice(0,1)||' '); }).join('');
+const hlEsc=s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+function hlRegex(term){ const t=String(term||'').trim(); if(!t) return null;
+  try{ if(/^re:/i.test(t)) return new RegExp(t.slice(3),'gi');
+    const body=hlNorm(t).trim().split(/[\s-]+/).map(hlEsc).join('[\\s-]+'); return new RegExp(`(?<![a-z0-9])${body}(?![a-z0-9])`,'gi'); }catch{ return null; } }
+export function highlightRanges(text,crit){
+  const n=hlNorm(text), out=[];
+  for(const [kind,terms] of [['k',[...(crit?.keywords||[]),...(crit?.allOf||[])]],['c',crit?.context||[]]]) for(const t of terms){ const rx=hlRegex(t); if(!rx) continue; let m, guard=0;
+    while((m=rx.exec(n))&&guard++<20){ if(!m[0]){ rx.lastIndex++; continue; } out.push({s:m.index,e:m.index+m[0].length,kind}); } }
+  out.sort((a,b)=>a.s-b.s||(a.kind==='k'?-1:1)); const merged=[];
+  for(const r of out){ const last=merged[merged.length-1]; if(last&&r.s<last.e){ if(r.kind==='k'&&last.kind==='c'){ last.kind='k'; } last.e=Math.max(last.e,r.e); } else merged.push({...r}); }
+  return merged;
+}
