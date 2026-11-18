@@ -256,9 +256,9 @@ console.log('Carte confort d’été (zones climatiques) OK');
   const v=verifiedSearch(o,grid,dec); assert.equal(v.criteria.p_present.found,false); assert.equal(v.themes.Parkings.applicable,false,'parking rejeté → thème non applicable');
   const v2=verifiedSearch(o,grid,{[verifKey(o,'g','p_portail')]:{d:'ko'}}); assert.equal(v2.themes.Parkings.ok,false,'critère obligatoire rejeté → thème insuffisant');
   assert.equal(verifiedSearch(o,grid,{[verifKey(o,'g','p_badge')]:{d:'ok'}}).criteria.p_badge.verified,true);
-  it=verificationItems([o],grid,dec); assert.deepEqual(verificationProgress(it),{total:3,ok:0,ko:1,pa:0,todo:2});
+  it=verificationItems([o],grid,dec); assert.deepEqual(verificationProgress(it),{total:3,ok:0,ko:1,pa:0,so:0,todo:2});
   { const v3=verifiedSearch(o,grid,{[verifKey(o,'g','p_portail')]:{d:'pa'}}); assert.equal(v3.criteria.p_portail.partial,true); assert.equal(v3.criteria.p_portail.found,false); assert.equal(v3.themes.Parkings.ok,false,'partiel ne compte pas comme trouvé');
-    assert.deepEqual(verificationProgress(verificationItems([o],grid,{[verifKey(o,'g','p_badge')]:{d:'pa'}})),{total:3,ok:0,ko:0,pa:1,todo:2}); }
+    assert.deepEqual(verificationProgress(verificationItems([o],grid,{[verifKey(o,'g','p_badge')]:{d:'pa'}})),{total:3,ok:0,ko:0,pa:1,so:0,todo:2}); }
   { const g2={id:'g',themes:[],criteria:[{id:'fen_442',theme:'F',label:'Vitrage 44.2 des fenêtres'},{id:'hall_vitrage',theme:'H',label:'Vitrage du hall'},{id:'fen_volets',theme:'F',label:'Volets'}]};
     const L='Vitrage feuilleté 44.2 sur les ensembles menuisés'; const op2={contract:'00009998',ope:'',name:'Fictif 2',searches:{g:{criteria:{fen_442:{found:true,evidence:[{doc:'a',page:1,line:L,ok:true}]},hall_vitrage:{found:true,evidence:[{doc:'b',page:2,line:L,ok:true}]},fen_volets:{found:true,evidence:[{doc:'c',page:3,line:'Volets anti-relevage',ok:true}]}}}}};
     const dup={...op2,name:'Fictif 2 bis'}; // même contrat, chargée deux fois
@@ -266,6 +266,8 @@ console.log('Carte confort d’été (zones climatiques) OK');
     assert.equal(it2.filter(i=>!i.decision).length,2,'seules les cartes Volets restent (même phrase / même critère validés d’office)');
     assert.equal(it2.find(i=>i.crit.id==='hall_vitrage').inherited,'Vitrage 44.2 des fenêtres');
     it2=verificationItems([op2],g2,{[verifKey(op2,'g','fen_442')]:{d:'pa'}}); assert.equal(it2.filter(i=>!i.decision).length,2,'un Partiel ne se propage pas'); }
+  { const vs=verifiedSearch(o,grid,{[verifKey(o,'g','p_badge')]:{d:'so'}}); assert.equal(vs.criteria.p_badge.found,false); assert.equal(vs.criteria.p_badge.offTopic,true);
+    assert.equal(verificationProgress(verificationItems([o],grid,{[verifKey(o,'g','p_badge')]:{d:'so'}})).so,1); }
   console.log('Vérification des Oui OK'); }
 { const {highlightRanges}=await import('./recoll.js');
   const crit={keywords:['re:portail[^\\n]{0,40}(?:parking|sous[- ]sol|garage)'],context:['telecommande','badge']};

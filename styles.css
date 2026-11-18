@@ -394,3 +394,12 @@ mark.hl-c{background:transparent;color:var(--et-ink);text-decoration:underline;t
 .vcard.d-pa{box-shadow:0 0 0 2px var(--check)}
 .vcard-undo{text-align:center;margin:10px 0 0}
 .v-inh{display:block;margin:0 0 6px;color:var(--et-ink);font-size:12px;white-space:normal}
+/* « Sans objet » (18/11/2026) : la phrase n'a pas de lien avec l'exigence */
+.vp-bar .so{background:var(--ink-3)}
+.vbtn.so:hover,.vbtn.so.on{border-color:var(--ink-2);color:var(--ink)}.vbtn.so.on{background:var(--sunk)}
+.verif-table tr.d-so td{background:rgba(151,122,102,.08)}
+.vcard-so{text-align:center;margin:10px 0 0}
+.vbig.so{background:var(--sunk);border-color:var(--ink-3);color:var(--ink-2);max-width:none;width:min(320px,100%)}
+.vstamp.so{left:50%;top:auto;bottom:14px;transform:translateX(-50%);color:var(--ink-2);border-color:var(--ink-2)}
+.vcard[data-swipe="so"] .vstamp.so{opacity:1}
+.vcard.d-so{box-shadow:0 0 0 2px var(--ink-3)}
