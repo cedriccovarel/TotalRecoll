@@ -382,6 +382,14 @@ export function verificationItems(rows,grid,decisions={}){
       const ev=(x.evidence||[]).filter(e=>e&&e.ok!==false&&!e.negative);
       const key=verifKey(o,grid.id,c.id);
       out.push({key,op:o,crit:c,status:st,manual:x.manual||'',value:x.value??'',evidence:ev.length?ev:(x.evidence||[]),decision:decisions[key]?.d||''}); } }
+  // 18/11/2026 — un Oui donné une fois dans une opération vaut pour les cartes en attente de cette même opération qui portent
+  // sur le même critère (opération chargée deux fois) ou montrent la même phrase (« 44.2 » des fenêtres et du hall) : elles
+  // sont validées d'office (decision 'ok', inherited) et ne sont plus redemandées. Rien n'est enregistré pour elles.
+  const opId=o=>o.contract||o.ope||String(o.name||'').trim().toLowerCase(), line=i=>String(i.evidence[0]?.line||'').trim().toLowerCase().replace(/\s+/g,' ');
+  const byOp=new Map(); for(const i of out){ const k=opId(i.op); if(!byOp.has(k)) byOp.set(k,[]); byOp.get(k).push(i); }
+  for(const list of byOp.values()){ const yes=list.filter(i=>i.decision==='ok'); if(!yes.length) continue;
+    for(const i of list){ if(i.decision) continue; const src=yes.find(y=>y.crit.id===i.crit.id||(line(y)&&line(y)===line(i)));
+      if(src){ i.decision='ok'; i.inherited=src.crit.label||src.crit.id; } } }
   return out;
 }
 // Résultats d'une grille pour une opération, avec les décisions appliquées (rejet = non trouvé ; thèmes recalculés).

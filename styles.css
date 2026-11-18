@@ -393,3 +393,4 @@ mark.hl-c{background:transparent;color:var(--et-ink);text-decoration:underline;t
 .vcard[data-swipe="pa"] .vstamp.pa{opacity:1}
 .vcard.d-pa{box-shadow:0 0 0 2px var(--check)}
 .vcard-undo{text-align:center;margin:10px 0 0}
+.v-inh{display:block;margin:0 0 6px;color:var(--et-ink);font-size:12px;white-space:normal}
