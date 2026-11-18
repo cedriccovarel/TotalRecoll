@@ -247,7 +247,10 @@ function downloadCsv(name,header,rows){
 /* ---------- Recherches ExtracTerre, croisées avec le référentiel de Tous contrats ---------- */
 let rsCache=null;
 // 18/11 — vérification humaine des « Oui » : décisions mémorisées (navigateur + fichier), appliquées aux statistiques et au CSV.
-const VERIF_LS='totalrecoll.verifications';
+// 18/11/2026 — nouvelles règles de comptage (Non = indice contraire, Sans objet = nul) : clé v2, les anciennes réponses sont
+// effacées au premier chargement (demande de l'utilisateur : recommencer la vérification avec ces règles).
+const VERIF_LS='totalrecoll.verifications.v2';
+try{ localStorage.removeItem('totalrecoll.verifications'); }catch{}
 try{ state.verif=JSON.parse(localStorage.getItem(VERIF_LS)||'{}'); }catch{ state.verif={}; }
 let verifRev=0; const saveVerif=()=>{ verifRev++; try{ localStorage.setItem(VERIF_LS,JSON.stringify(state.verif)); }catch{} };
 function researchData(){
@@ -372,6 +375,9 @@ $('verifBody').addEventListener('click',e=>{
   tr.className=d?'d-'+d:''; tr.querySelectorAll('.vbtn').forEach(x=>{ const on=x.dataset.d===d; x.classList.toggle('on',on); x.setAttribute('aria-pressed',String(on)); }); verifProgress(verifData().all); });
 $('verifDlg').addEventListener('keydown',e=>{ if(vf.view!=='cards'||e.target.closest('select,input')) return;
   if(e.key==='ArrowRight'){ e.preventDefault(); cardDecide('ok'); } else if(e.key==='ArrowLeft'){ e.preventDefault(); cardDecide('ko'); } else if(e.key==='ArrowUp'){ e.preventDefault(); cardDecide('pa'); } else if(e.key==='ArrowDown'){ e.preventDefault(); cardDecide('so'); } else if(e.key==='Backspace'){ e.preventDefault(); cardUndo(); } });
+$('vfReset').addEventListener('click',()=>{ const n=Object.keys(state.verif).length; if(!n){ toast('Aucune décision à effacer.','info'); return; }
+  if($('vfReset').dataset.armed!=='1'){ $('vfReset').dataset.armed='1'; $('vfReset').textContent=`Confirmer : effacer ${n} décision(s)`; setTimeout(()=>{ $('vfReset').dataset.armed=''; $('vfReset').textContent='Tout effacer'; },5000); return; }
+  state.verif={}; saveVerif(); $('vfReset').dataset.armed=''; $('vfReset').textContent='Tout effacer'; vf.history=[]; vf.idx=0; renderVerif(); toast(`${n} décision(s) effacée(s).`,'success'); });
 $('vfExport').addEventListener('click',()=>{ const blob=new Blob([JSON.stringify({format:'totalrecoll-verifications',version:1,exportedAt:new Date().toISOString(),decisions:state.verif},null,1)],{type:'application/json'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`TotalRecoll_verifications_${new Date().toISOString().slice(0,10)}.json`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
   toast(`${Object.keys(state.verif).length} décision(s) exportée(s).`,'success'); });
