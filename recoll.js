@@ -369,3 +369,33 @@ export function researchStats(rows,grid){
     return {t,applicable:pool.length,ok:pool.filter(o=>o.searches[grid.id].themes?.[t.name]?.ok).length,crit}; });
   return {rows:withG,themes};
 }
+
+/* ---------- Vérification humaine des « Oui » des recherches (18/11/2026) ----------
+   Chaque réponse Oui / Partiel d'un critère est montrée avec son exigence et ses preuves (document, page, ligne, contexte) ;
+   l'utilisateur l'accepte ou la rejette. Une réponse rejetée ne compte plus comme trouvée (statistiques, CSV, thèmes recalculés). */
+export const verifKey=(o,gid,cid)=>`${researchKey(o)}|${gid}|${cid}`;
+const verifStatus=x=>!x?'':x.partial?'partiel':x.found?'oui':'';
+export function verificationItems(rows,grid,decisions={}){
+  const out=[];
+  for(const o of rows){ const s=o.searches?.[grid.id]; if(!s) continue;
+    for(const c of grid.criteria||[]){ const x=s.criteria?.[c.id], st=verifStatus(x); if(!st) continue;
+      const ev=(x.evidence||[]).filter(e=>e&&e.ok!==false&&!e.negative);
+      const key=verifKey(o,grid.id,c.id);
+      out.push({key,op:o,crit:c,status:st,manual:x.manual||'',value:x.value??'',evidence:ev.length?ev:(x.evidence||[]),decision:decisions[key]?.d||''}); } }
+  return out;
+}
+// Résultats d'une grille pour une opération, avec les décisions appliquées (rejet = non trouvé ; thèmes recalculés).
+export function verifiedSearch(o,grid,decisions={}){
+  const s=o.searches?.[grid.id]; if(!s) return s;
+  let changed=false; const criteria={};
+  for(const [cid,x] of Object.entries(s.criteria||{})){ const d=decisions[verifKey(o,grid.id,cid)]?.d;
+    if(d==='ko'&&(x.found||x.partial)){ criteria[cid]={...x,found:false,partial:false,rejected:true,value:'Rejeté à la vérification'}; changed=true; }
+    else criteria[cid]=d==='ok'?{...x,verified:true}:x; }
+  if(!changed) return {...s,criteria};
+  const themes={};
+  for(const t of grid.themes||[]){ const own=(grid.criteria||[]).filter(c=>c.theme===t.name&&c.id!==t.applicableIf), req=own.filter(c=>(t.required||[]).includes(c.id)), opt=own.filter(c=>!(t.required||[]).includes(c.id));
+    const applicable=!t.applicableIf||!!criteria[t.applicableIf]?.found, found=opt.filter(c=>criteria[c.id]?.found).length, requiredOk=req.every(c=>criteria[c.id]?.found);
+    themes[t.name]={...(s.themes?.[t.name]||{}),applicable,found,min:t.min,required:req.length,requiredOk,ok:applicable?(requiredOk&&found>=(Number(t.min)||0)):null}; }
+  return {...s,criteria,themes};
+}
+export function verificationProgress(items){ const ok=items.filter(i=>i.decision==='ok').length, ko=items.filter(i=>i.decision==='ko').length; return {total:items.length,ok,ko,todo:items.length-ok-ko}; }

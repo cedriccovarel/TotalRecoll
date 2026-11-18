@@ -246,3 +246,15 @@ console.log('Carte confort d’été (zones climatiques) OK');
   const all=researchStats(rows,grid); assert.equal(all.rows.length,3); assert.equal(all.themes[0].crit[0].med,20);
   console.log('Recherches × référentiel OK');
 }
+
+// Vérification des « Oui » des recherches (données fictives).
+{ const {verificationItems,verifiedSearch,verificationProgress,verifKey}=await import('./recoll.js');
+  const grid={id:'g',themes:[{name:'Parkings',min:1,required:['p_portail'],applicableIf:'p_present'}],criteria:[{id:'p_present',theme:'Parkings',label:'Parking'},{id:'p_portail',theme:'Parkings',label:'Portail'},{id:'p_badge',theme:'Parkings',label:'Badge'}]};
+  const o={contract:'00009999',ope:'',name:'Fictif',searches:{g:{criteria:{p_present:{found:true,evidence:[{doc:'CCTP.pdf',page:3,line:'parking en sous-sol',ok:true}]},p_portail:{found:true,evidence:[{doc:'CCTP.pdf',page:4,line:'portail motorise parking',ok:true}]},p_badge:{found:true,evidence:[{doc:'C.pdf',page:1,line:'sans badge',ok:false},{doc:'C.pdf',page:2,line:'lecteur vigik porte parking',ok:true}]}},themes:{Parkings:{applicable:true,found:1,ok:true}}}}};
+  let it=verificationItems([o],grid,{}); assert.equal(it.length,3); assert.equal(it[2].evidence.length,1,'seules les preuves qui justifient le Oui');
+  const dec={[verifKey(o,'g','p_present')]:{d:'ko'}};
+  const v=verifiedSearch(o,grid,dec); assert.equal(v.criteria.p_present.found,false); assert.equal(v.themes.Parkings.applicable,false,'parking rejeté → thème non applicable');
+  const v2=verifiedSearch(o,grid,{[verifKey(o,'g','p_portail')]:{d:'ko'}}); assert.equal(v2.themes.Parkings.ok,false,'critère obligatoire rejeté → thème insuffisant');
+  assert.equal(verifiedSearch(o,grid,{[verifKey(o,'g','p_badge')]:{d:'ok'}}).criteria.p_badge.verified,true);
+  it=verificationItems([o],grid,dec); assert.deepEqual(verificationProgress(it),{total:3,ok:0,ko:1,todo:2});
+  console.log('Vérification des Oui OK'); }

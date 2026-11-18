@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Michroma&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="styles.css?v=13">
+<link rel="stylesheet" href="styles.css?v=14">
 </head>
 <body>
 <header class="top">
@@ -136,6 +136,7 @@
         <select id="rsRef" aria-label="Référentiel"></select>
         <select id="rsOwner" aria-label="Maître d’ouvrage"></select>
         <input id="rsQ" type="search" placeholder="Rechercher un contrat, une OPE, une opération" aria-label="Rechercher une opération">
+        <button class="btn small" id="rsVerif" type="button" title="Vérifier une à une les réponses « Oui » avec leur preuve">✔ Vérifier les « Oui » <b id="nVerif"></b></button>
         <button class="btn small" id="rsCsv" type="button">Exporter en CSV</button>
       </div>
       <div id="research"></div>
@@ -184,6 +185,28 @@
   <form method="dialog"><button class="btn">Fermer</button></form>
 </dialog>
 
+<dialog id="verifDlg" class="verif" aria-labelledby="verifTitle">
+  <header class="verif-head">
+    <div><h2 id="verifTitle">Vérification des « Oui »</h2><p class="muted" id="verifSub"></p></div>
+    <div class="verif-progress" id="verifProgress" aria-live="polite"></div>
+    <button class="btn quiet small" type="button" id="verifClose" aria-label="Fermer">Fermer</button>
+  </header>
+  <div class="verif-tools">
+    <select id="vfCrit" aria-label="Critère"></select>
+    <select id="vfStatus" aria-label="Statut de vérification">
+      <option value="todo">À vérifier</option><option value="ok">Acceptés</option><option value="ko">Rejetés</option><option value="all">Tous</option>
+    </select>
+    <div class="seg" role="radiogroup" aria-label="Affichage">
+      <button type="button" role="radio" data-view="table" aria-checked="true">Tableau</button>
+      <button type="button" role="radio" data-view="cards" aria-checked="false">Cartes</button>
+    </div>
+    <span class="grow"></span>
+    <button class="btn quiet small" type="button" id="vfExport" title="Enregistrer les décisions dans un fichier (sauvegarde, partage)">Exporter les décisions</button>
+    <label class="btn quiet small" title="Reprendre des décisions enregistrées">Importer<input type="file" id="vfImport" accept=".json,application/json" hidden></label>
+  </div>
+  <div id="verifBody" class="verif-body"></div>
+</dialog>
+
 <dialog id="pubDlg" aria-labelledby="pubTitle">
   <form id="pubForm" method="dialog" autocomplete="off">
     <h3 id="pubTitle">Publier dans l’Observatoire</h3>
@@ -201,6 +224,6 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="newosb-bridge.js?v=6.66.0"></script>
-<script type="module" src="app.js?v=22"></script>
+<script type="module" src="app.js?v=23"></script>
 </body>
 </html>

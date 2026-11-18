@@ -1,4 +1,5 @@
-import {REL_ORDER,REL_LABEL,relKey,recoll,opsFromSession,opsFromBuildingRows,CONTRACT_COL,OPE_COL,STATUS_COL,BUILDING_COL,KINDS,TECH_LABELS,targetColumn,empty,anruIndex,ANRU_COL,ANRU_QP_COL,confortOf,oddValue,COLUMN_KEY,sortRowIndexes,ZONES,zoneOfDep,depOfRow,confortStats,SYSTEMS,DH_ZT,DH_ZNT,publishTable,researchFromSession,mergeResearch,researchRows,researchStats,NO_REF} from './recoll.js?v=16';
+import {REL_ORDER,REL_LABEL,relKey,recoll,opsFromSession,opsFromBuildingRows,CONTRACT_COL,OPE_COL,STATUS_COL,BUILDING_COL,KINDS,TECH_LABELS,targetColumn,empty,anruIndex,ANRU_COL,ANRU_QP_COL,confortOf,oddValue,COLUMN_KEY,sortRowIndexes,ZONES,zoneOfDep,depOfRow,confortStats,SYSTEMS,DH_ZT,DH_ZNT,publishTable,researchFromSession,mergeResearch,researchRows,researchStats,NO_REF} from './recoll.js?v=17';
+import {verificationItems,verifiedSearch,verificationProgress} from './recoll.js?v=17';
 
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -245,14 +246,19 @@ function downloadCsv(name,header,rows){
 
 /* ---------- Recherches ExtracTerre, croisées avec le référentiel de Tous contrats ---------- */
 let rsCache=null;
+// 18/11 — vérification humaine des « Oui » : décisions mémorisées (navigateur + fichier), appliquées aux statistiques et au CSV.
+const VERIF_LS='totalrecoll.verifications';
+try{ state.verif=JSON.parse(localStorage.getItem(VERIF_LS)||'{}'); }catch{ state.verif={}; }
+let verifRev=0; const saveVerif=()=>{ verifRev++; try{ localStorage.setItem(VERIF_LS,JSON.stringify(state.verif)); }catch{} };
 function researchData(){
   const parts=state.et.map(e=>e.research).filter(Boolean), key=parts.map(p=>p.ops.length).join(',')+'|'+state.et.map(e=>e.name).join(',')+'|'+(state.sf?.rows.length||0)+state.sfName;
-  if(rsCache?.key!==key){ const m=mergeResearch(parts); rsCache={key,grids:m.grids,rows:researchRows(m,state.sf)}; }
+  if(rsCache?.key!==key){ const m=mergeResearch(parts); rsCache={key,grids:m.grids,raw:researchRows(m,state.sf),rev:-1}; }
+  if(rsCache.rev!==verifRev){ rsCache.rows=rsCache.raw.map(o=>({...o,searches:Object.fromEntries(Object.entries(o.searches).map(([gid,sr])=>{ const g=rsCache.grids.find(x=>String(x.id)===gid); return [gid,g?verifiedSearch(o,g,state.verif):sr]; }))})); rsCache.rev=verifRev; }
   return rsCache;
 }
 const researchAll=()=>researchData().rows;
-function researchSelected(){
-  const {rows}=researchData(), f=state.rs, q=f.q.toLowerCase();
+function researchSelected(raw=false){
+  const d=researchData(), rows=raw?d.raw:d.rows, f=state.rs, q=f.q.toLowerCase();
   return rows.filter(o=>(!f.ref||o.refs.includes(f.ref))&&(!f.owner||o.owner===f.owner)&&(!q||`${o.contract} ${o.ope} ${o.name} ${o.owner} ${o.refs.join(' ')}`.toLowerCase().includes(q)));
 }
 const pct1=(a,b)=>b?Math.round(a/b*1000)/10:0;
@@ -268,9 +274,11 @@ function renderResearch(){
   $('rsRef').innerHTML=opt('',`Tous les référentiels (${refs.length})`,f.ref)+refs.map(r=>opt(r,`${r} (${cnt(rows,o=>o.refs.includes(r)&&o.searches[g.id])})`,f.ref)).join('');
   $('rsOwner').innerHTML=opt('',`Tous les maîtres d’ouvrage (${owners.length})`,f.owner)+owners.map(o=>opt(o,o,f.owner)).join('');
   const st=researchStats(researchSelected(),g), N=st.rows.length, n=v=>v.toLocaleString('fr-FR');
+  { const pr=verificationProgress(verificationItems(researchSelected(true),g,state.verif)); $('nVerif').textContent=pr.todo?`(${pr.todo.toLocaleString('fr-FR')})`:''; }
   const notSf=st.rows.filter(o=>!o.inSf).length;
   box.innerHTML=`<div class="rs-kpis"><div class="rs-kpi"><b>${n(N)}</b><span>opération(s) analysée(s) avec « ${esc(g.name||g.id)} »${notSf?` · ${notSf} hors Tous contrats`:''}</span></div>
     <div class="rs-kpi"><b>${n(new Set(st.rows.map(o=>o.owner)).size)}</b><span>maître(s) d’ouvrage</span></div>
+    ${(()=>{ const pr=verificationProgress(verificationItems(researchSelected(true),g,state.verif)); return pr.total?`<div class="rs-kpi"><b>${n(pr.ok+pr.ko)} / ${n(pr.total)}</b><span>« Oui » vérifiés (${n(pr.ok)} acceptés · ${n(pr.ko)} rejetés)</span></div>`:''; })()}
     ${st.themes.map(x=>`<div class="rs-kpi"><b>${pct1(x.ok,x.applicable)} %</b><span>${esc(x.t.name)} : indices suffisants (${x.ok} / ${x.applicable})</span></div>`).join('')}</div>
   ${N?st.themes.map(x=>`<section class="rs-theme"><h3>${esc(x.t.name)}</h3><p class="muted">${x.applicable} opération(s) concernée(s) · minimum ${Number(x.t.min)||0} critère(s)</p>
     <div class="rs-legend"><span><i style="background:var(--et)"></i>Indice trouvé</span><span><i style="background:var(--rust)"></i>Indice contraire / hors seuil</span></div>
@@ -289,6 +297,80 @@ function exportResearchCsv(){
     return [o.contract,o.ope,o.name,o.owner,o.refs.join(' / '),...(g.themes||[]).map(t=>{ const th=s.themes?.[t.name]; return th?.applicable===false?'Non applicable':th?.ok?'Oui':'Non'; }),...(g.criteria||[]).map(c=>s.criteria?.[c.id]?.value??''),String(o.at).slice(0,10)]; }));
   toast(`${rows.length} opération(s) exportée(s).`,'success');
 }
+
+/* ---------- Vérification des « Oui » : tableau ou cartes à glisser (accepter / rejeter) ---------- */
+const vf={view:'table',crit:'',status:'todo',limit:150,idx:0,history:[]};
+function verifData(){ const {grids}=researchData(), g=grids.find(x=>x.id===state.rs.grid); if(!g) return {g:null,all:[],list:[]};
+  const all=verificationItems(researchSelected(true),g,state.verif);
+  const list=all.filter(i=>(!vf.crit||i.crit.id===vf.crit)&&(vf.status==='all'||(vf.status==='todo'?!i.decision:i.decision===vf.status)));
+  return {g,all,list}; }
+const evHtml=e=>`<div class="ev"><div class="ev-src">${esc(e.doc||'Document non précisé')}${e.page!==''&&e.page!=null?` · p. ${esc(String(e.page))}`:''}</div><div class="ev-line">${esc(e.line||'')}</div>${e.ctx&&e.ctx.trim()!==String(e.line||'').trim()?`<div class="ev-ctx">${esc(e.ctx)}</div>`:''}</div>`;
+const reqHtml=i=>`<div class="req-label">${esc(i.crit.label)}</div><div class="req-meta">${esc(i.crit.theme||'')} · réponse : <b>${i.status==='partiel'?'Partiel':'Oui'}</b>${i.manual?' (saisie manuelle dans ExtracTerre)':''}${i.value&&!/^Oui$/i.test(String(i.value))?` · ${esc(String(i.value))}`:''}</div>${i.crit.description?`<div class="req-desc">${esc(i.crit.description)}</div>`:''}`;
+const opHtml=o=>`<b>${esc(o.contract||o.ope||'—')}</b> ${esc(o.name)}<small>${esc(o.owner)} · ${esc(o.refs.join(' / '))}</small>`;
+function verifProgress(all){ const p=verificationProgress(all), pc=p.total?Math.round((p.ok+p.ko)/p.total*100):0;
+  $('verifProgress').innerHTML=`<div class="vp-bar" role="progressbar" aria-label="Avancement de la vérification" aria-valuenow="${pc}" aria-valuemin="0" aria-valuemax="100"><span class="ok" style="width:${p.total?p.ok/p.total*100:0}%"></span><span class="ko" style="width:${p.total?p.ko/p.total*100:0}%"></span></div><small>${(p.ok+p.ko).toLocaleString('fr-FR')} / ${p.total.toLocaleString('fr-FR')} vérifiés · ✓ ${p.ok.toLocaleString('fr-FR')} · ✗ ${p.ko.toLocaleString('fr-FR')}</small>`; }
+function setDecision(key,d){ const prev=state.verif[key]?.d||''; if(d===prev||!d) delete state.verif[key]; else state.verif[key]={d,at:new Date().toISOString()}; saveVerif(); return prev; }
+function renderVerif(){
+  const {g,all,list}=verifData(), body=$('verifBody');
+  if(!g){ body.innerHTML='<p class="muted">Aucune grille de recherche chargée.</p>'; return; }
+  $('verifSub').textContent=`${g.name||g.id} · ${researchSelected(true).filter(o=>o.searches[g.id]).length.toLocaleString('fr-FR')} opération(s) de la sélection de l’onglet Recherches`;
+  const crits=(g.criteria||[]).filter(c=>all.some(i=>i.crit.id===c.id)), cnt=id=>all.filter(i=>i.crit.id===id&&!i.decision).length;
+  if(vf.crit&&!crits.some(c=>c.id===vf.crit)) vf.crit='';
+  $('vfCrit').innerHTML=`<option value="">Tous les critères (${all.filter(i=>!i.decision).length} à vérifier)</option>`+crits.map(c=>`<option value="${esc(c.id)}"${c.id===vf.crit?' selected':''}>${esc(c.theme)} — ${esc(c.label)} (${cnt(c.id)})</option>`).join('');
+  $('vfStatus').value=vf.status; document.querySelectorAll('#verifDlg [data-view]').forEach(b=>b.setAttribute('aria-checked',String(b.dataset.view===vf.view)));
+  verifProgress(all);
+  if(!list.length){ body.innerHTML=`<p class="verif-empty">${vf.status==='todo'?'Tout est vérifié pour cette sélection ✓':'Aucune réponse pour ce filtre.'}</p>`; return; }
+  if(vf.view==='cards') return renderVerifCard(list);
+  const rows=list.slice(0,vf.limit);
+  body.innerHTML=`<div class="scroll"><table class="grid verif-table"><thead><tr><th scope="col">Opération</th><th scope="col">Exigence</th><th scope="col">Vérification (preuve et source)</th><th scope="col">Décision</th></tr></thead><tbody>
+    ${rows.map(i=>`<tr data-key="${esc(i.key)}" class="${i.decision?'d-'+i.decision:''}"><td class="v-op">${opHtml(i.op)}</td><td class="v-req">${reqHtml(i)}</td><td class="v-ev">${i.evidence.map(evHtml).join('')||'<span class="muted">Aucune preuve exportée</span>'}</td>
+      <td class="v-dec"><button type="button" class="vbtn ok${i.decision==='ok'?' on':''}" data-d="ok" aria-pressed="${i.decision==='ok'}">✓ Accepter</button><button type="button" class="vbtn ko${i.decision==='ko'?' on':''}" data-d="ko" aria-pressed="${i.decision==='ko'}">✗ Rejeter</button></td></tr>`).join('')}</tbody></table></div>
+    ${list.length>rows.length?`<p class="verif-more"><button class="btn quiet small" type="button" id="vfMore">Afficher ${Math.min(150,list.length-rows.length)} de plus (${(list.length-rows.length).toLocaleString('fr-FR')} restantes)</button></p>`:''}`;
+}
+function renderVerifCard(list){
+  if(vf.idx>=list.length) vf.idx=Math.max(0,list.length-1); const i=list[vf.idx];
+  $('verifBody').innerHTML=`<div class="vcard-wrap"><p class="vcard-count">${vf.idx+1} / ${list.length.toLocaleString('fr-FR')}</p>
+    <article class="vcard ${i.decision?'d-'+i.decision:''}" id="vcard" data-key="${esc(i.key)}" tabindex="0" aria-label="Carte à glisser : à droite pour Oui, à gauche pour Non">
+      <div class="vstamp ok" aria-hidden="true">OUI</div><div class="vstamp ko" aria-hidden="true">NON</div>
+      <section><h3>Exigence</h3>${reqHtml(i)}</section>
+      <section><h3>Opération</h3><div class="v-op">${opHtml(i.op)}</div></section>
+      <section><h3>Vérification</h3>${i.evidence.map(evHtml).join('')||'<span class="muted">Aucune preuve exportée</span>'}<p class="muted small">Pour vérifier à la main : ouvrir le document à la page indiquée.</p></section>
+    </article>
+    <div class="vcard-actions"><button type="button" class="vbig ko" data-card="ko">✗ Non</button><button type="button" class="btn quiet small" data-card="undo"${vf.history.length?'':' disabled'}>↶ Annuler</button><button type="button" class="vbig ok" data-card="ok">✓ Oui</button></div>
+    <p class="muted small vcard-help">Glisser la carte à droite = Oui, à gauche = Non · clavier : → Oui, ← Non, Retour arrière = annuler</p></div>`;
+  const card=$('vcard'); let x0=null,dx=0; card.focus({preventScroll:true});
+  card.addEventListener('pointerdown',e=>{ if(e.target.closest('a,button')) return; x0=e.clientX; dx=0; card.setPointerCapture(e.pointerId); card.classList.add('drag'); });
+  card.addEventListener('pointermove',e=>{ if(x0===null) return; dx=e.clientX-x0; card.style.transform=`translateX(${dx}px) rotate(${dx/22}deg)`; card.dataset.swipe=dx>40?'ok':dx<-40?'ko':''; });
+  const end=()=>{ if(x0===null) return; x0=null; card.classList.remove('drag'); if(Math.abs(dx)>110) cardDecide(dx>0?'ok':'ko'); else { card.style.transform=''; card.dataset.swipe=''; } };
+  card.addEventListener('pointerup',end); card.addEventListener('pointercancel',end);
+}
+function cardDecide(d){ const {list}=verifData(), i=list[vf.idx]; if(!i) return; const prev=state.verif[i.key]?.d||''; if(prev!==d) setDecision(i.key,d); vf.history.push({key:i.key,prev});
+  const card=$('vcard'); if(card){ card.style.transition='transform .22s ease-out,opacity .22s'; card.style.transform=`translateX(${d==='ok'?600:-600}px) rotate(${d==='ok'?18:-18}deg)`; card.style.opacity='0'; }
+  setTimeout(()=>{ if(vf.status!=='todo') vf.idx++; renderVerif(); },200); }
+function cardUndo(){ const h=vf.history.pop(); if(!h) return; if(h.prev) state.verif[h.key]={d:h.prev,at:new Date().toISOString()}; else delete state.verif[h.key]; saveVerif();
+  const {list}=verifData(), k=list.findIndex(i=>i.key===h.key); if(k>=0) vf.idx=k; renderVerif(); }
+function openVerif(){ vf.idx=0; vf.history=[]; vf.limit=150; renderVerif(); $('verifDlg').showModal(); }
+$('rsVerif').addEventListener('click',openVerif);
+$('verifClose').addEventListener('click',()=>$('verifDlg').close());
+$('verifDlg').addEventListener('close',()=>renderResearch());
+$('vfCrit').addEventListener('change',e=>{ vf.crit=e.target.value; vf.idx=0; vf.limit=150; renderVerif(); });
+$('vfStatus').addEventListener('change',e=>{ vf.status=e.target.value; vf.idx=0; vf.limit=150; renderVerif(); });
+document.querySelectorAll('#verifDlg [data-view]').forEach(b=>b.addEventListener('click',()=>{ vf.view=b.dataset.view; vf.idx=0; renderVerif(); }));
+$('verifBody').addEventListener('click',e=>{
+  if(e.target.closest('#vfMore')){ vf.limit+=150; renderVerif(); return; }
+  const c=e.target.closest('[data-card]'); if(c){ if(c.dataset.card==='undo') cardUndo(); else cardDecide(c.dataset.card); return; }
+  const b=e.target.closest('.vbtn'); if(!b) return; const tr=b.closest('tr'), key=tr.dataset.key; setDecision(key,b.dataset.d); const d=state.verif[key]?.d||'';
+  tr.className=d?'d-'+d:''; tr.querySelectorAll('.vbtn').forEach(x=>{ const on=x.dataset.d===d; x.classList.toggle('on',on); x.setAttribute('aria-pressed',String(on)); }); verifProgress(verifData().all); });
+$('verifDlg').addEventListener('keydown',e=>{ if(vf.view!=='cards'||e.target.closest('select,input')) return;
+  if(e.key==='ArrowRight'){ e.preventDefault(); cardDecide('ok'); } else if(e.key==='ArrowLeft'){ e.preventDefault(); cardDecide('ko'); } else if(e.key==='Backspace'){ e.preventDefault(); cardUndo(); } });
+$('vfExport').addEventListener('click',()=>{ const blob=new Blob([JSON.stringify({format:'totalrecoll-verifications',version:1,exportedAt:new Date().toISOString(),decisions:state.verif},null,1)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`TotalRecoll_verifications_${new Date().toISOString().slice(0,10)}.json`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+  toast(`${Object.keys(state.verif).length} décision(s) exportée(s).`,'success'); });
+$('vfImport').addEventListener('change',async e=>{ const f=e.target.files?.[0]; if(!f) return;
+  try{ const j=JSON.parse(await f.text()); if(j?.format!=='totalrecoll-verifications'||typeof j.decisions!=='object') throw new Error('Ce fichier n’est pas un export de vérifications TotalRecoll.');
+    let n=0; for(const [k,v] of Object.entries(j.decisions)){ if(!v||!['ok','ko'].includes(v.d)) continue; const cur=state.verif[k]; if(!cur||String(v.at||'')>=String(cur.at||'')){ state.verif[k]=v; n++; } }
+    saveVerif(); renderVerif(); toast(`${n} décision(s) reprise(s).`,'success'); }catch(err){ toast(err.message||String(err),'error'); }
+  e.target.value=''; });
 
 /* ---------- Confort d'été : valeurs normalisées par bâtiment ---------- */
 const CONFORT_HEAD=['Contrat','OPE',"Nom de l'opération",'Bâtiment','DH zones traversantes','DH zones non traversantes','Système constructif','Brasseur d’air','Bâtiment climatisé','À vérifier'];

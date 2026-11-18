@@ -302,3 +302,62 @@ td.sfdiff::after{content:"";position:absolute;top:0;right:0;border-style:solid;b
 .rs-pct{text-align:right}.rs-legend{display:flex;gap:14px;font-size:12px;color:var(--ink-3);margin:4px 0}.rs-legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
 .grid td.rs-ok{color:var(--et-ink);font-weight:600}.grid td.rs-ko{color:var(--sf-ink);font-weight:600}.grid td.rs-na{color:var(--ink-3)}
 @media (max-width:720px){.rs-crit{grid-template-columns:1fr;gap:4px}.rs-pct{text-align:left}}
+
+/* ---------- Vérification des « Oui » (18/11/2026) ---------- */
+dialog.verif{width:min(1280px,100vw - 24px);max-width:none;height:min(920px,100vh - 24px);max-height:none;padding:0;border:1px solid var(--line-strong);border-radius:6px;background:var(--paper);color:var(--ink);display:none;flex-direction:column}
+dialog.verif[open]{display:flex}
+dialog.verif::backdrop{background:rgba(8,3,2,.72)}
+.verif-head{display:flex;align-items:center;gap:20px;padding:14px 20px;border-bottom:1px solid var(--line);background:linear-gradient(#240C06,#2B1009)}
+.verif-head h2{margin:0;font:600 18px/1.2 var(--display);letter-spacing:.02em}
+.verif-head p{margin:2px 0 0}
+.verif-progress{margin-left:auto;min-width:240px;text-align:right}
+.vp-bar{display:flex;height:6px;border-radius:3px;background:var(--sunk);overflow:hidden;margin-bottom:4px}
+.vp-bar .ok{background:var(--et)}.vp-bar .ko{background:var(--rust)}
+.verif-progress small{color:var(--ink-2);font-size:12.5px}
+.verif-tools{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 20px;border-bottom:1px solid var(--line)}
+.verif-tools select{background:var(--surface);color:var(--ink);border:1px solid var(--line-strong);border-radius:3px;padding:6px 8px;font:inherit;max-width:420px}
+.verif-tools .grow{flex:1}
+.seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:3px;overflow:hidden}
+.seg button{background:transparent;color:var(--ink-2);border:0;padding:6px 14px;font:inherit;cursor:pointer}
+.seg button[aria-checked="true"]{background:var(--sunk);color:var(--ink);box-shadow:inset 0 -2px 0 var(--et)}
+.verif-body{flex:1;overflow:auto;padding:14px 20px 24px}
+.verif-empty{margin:60px auto;text-align:center;font-size:16px;color:var(--et-ink)}
+.verif-more{text-align:center;margin:14px 0 0}
+.verif-table td{vertical-align:top;white-space:normal;overflow:visible;text-overflow:clip;max-width:none}
+.verif-table .v-op{min-width:180px;max-width:240px}.verif-table .v-req{min-width:220px;max-width:300px}.verif-table .v-ev{min-width:320px}
+.v-op small,.req-meta,.req-desc{display:block;color:var(--ink-3);font-size:12.5px;margin-top:3px}
+.req-label{font-weight:600}
+.ev{border-left:2px solid var(--line-strong);padding:2px 0 2px 10px;margin:0 0 8px}
+.ev-src{font-size:12.5px;color:var(--sf-ink)}
+.ev-line{color:var(--ink)}
+.ev-ctx{color:var(--ink-3);font-size:12.5px;margin-top:2px;white-space:pre-wrap}
+.v-dec{white-space:nowrap}
+.vbtn{display:block;width:100%;margin:0 0 6px;padding:6px 10px;border-radius:3px;border:1px solid var(--line-strong);background:transparent;color:var(--ink-2);font:inherit;font-weight:600;cursor:pointer}
+.vbtn.ok:hover,.vbtn.ok.on{border-color:var(--et);color:var(--et-ink)}.vbtn.ok.on{background:var(--et-wash)}
+.vbtn.ko:hover,.vbtn.ko.on{border-color:var(--rust);color:#fff}.vbtn.ko.on{background:var(--bad-wash)}
+.verif-table tr.d-ok td{background:rgba(79,224,210,.05)}.verif-table tr.d-ko td{background:rgba(193,68,14,.08)}
+.vcard-wrap{max-width:720px;margin:0 auto;display:flex;flex-direction:column;align-items:stretch}
+.vcard-count{text-align:center;color:var(--ink-3);margin:0 0 8px}
+.vcard{position:relative;background:var(--surface);border:1px solid var(--line-strong);border-radius:8px;padding:18px 22px;touch-action:pan-y;user-select:none;cursor:grab;box-shadow:0 8px 28px rgba(0,0,0,.35);transition:transform .15s ease-out}
+.vcard.drag{transition:none;cursor:grabbing}
+.vcard:focus-visible{outline:2px solid var(--focus);outline-offset:3px}
+.vcard section+section{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.vcard h3{margin:0 0 6px;font:600 11px/1 var(--display);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
+.vcard .req-label{font-size:17px}
+.vstamp{position:absolute;top:18px;padding:4px 12px;border:3px solid;border-radius:4px;font:700 22px/1 var(--display);letter-spacing:.08em;opacity:0;transition:opacity .1s;pointer-events:none}
+.vstamp.ok{left:18px;color:var(--et);border-color:var(--et);transform:rotate(-12deg)}
+.vstamp.ko{right:18px;color:var(--rust);border-color:var(--rust);transform:rotate(12deg)}
+.vcard[data-swipe="ok"] .vstamp.ok,.vcard[data-swipe="ko"] .vstamp.ko{opacity:1}
+.vcard.d-ok{box-shadow:0 0 0 2px var(--et)}.vcard.d-ko{box-shadow:0 0 0 2px var(--rust)}
+.vcard-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:16px}
+.vbig{flex:1;max-width:220px;padding:14px 18px;border-radius:6px;font:700 17px/1 inherit;font-family:inherit;cursor:pointer;border:2px solid}
+.vbig.ok{background:var(--et-wash);border-color:var(--et);color:var(--et-ink)}
+.vbig.ko{background:var(--bad-wash);border-color:var(--rust);color:#fff}
+.vbig:hover{filter:brightness(1.15)}
+.vcard-help{text-align:center;margin-top:10px}
+@media (max-width:720px){
+  dialog.verif{width:100vw;height:100vh;border-radius:0}
+  .verif-head{flex-wrap:wrap;gap:10px;padding:12px 16px}.verif-progress{min-width:0;width:100%;text-align:left}
+  .verif-tools,.verif-body{padding-left:16px;padding-right:16px}
+  .vcard{padding:14px 16px}
+}
