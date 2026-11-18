@@ -1,5 +1,5 @@
-import {REL_ORDER,REL_LABEL,relKey,recoll,opsFromSession,opsFromBuildingRows,CONTRACT_COL,OPE_COL,STATUS_COL,BUILDING_COL,KINDS,TECH_LABELS,targetColumn,empty,anruIndex,ANRU_COL,ANRU_QP_COL,confortOf,oddValue,COLUMN_KEY,sortRowIndexes,ZONES,zoneOfDep,depOfRow,confortStats,SYSTEMS,DH_ZT,DH_ZNT,publishTable,researchFromSession,mergeResearch,researchRows,researchStats,NO_REF} from './recoll.js?v=23';
-import {verificationItems,verifiedSearch,verificationProgress,highlightRanges,effectiveDecisions} from './recoll.js?v=23';
+import {REL_ORDER,REL_LABEL,relKey,recoll,opsFromSession,opsFromBuildingRows,CONTRACT_COL,OPE_COL,STATUS_COL,BUILDING_COL,KINDS,TECH_LABELS,targetColumn,empty,anruIndex,ANRU_COL,ANRU_QP_COL,confortOf,oddValue,COLUMN_KEY,sortRowIndexes,ZONES,zoneOfDep,depOfRow,confortStats,SYSTEMS,DH_ZT,DH_ZNT,publishTable,researchFromSession,mergeResearch,researchRows,researchStats,NO_REF} from './recoll.js?v=24';
+import {verificationItems,verifiedSearch,verificationProgress,highlightRanges,effectiveDecisions,controlItems,CTRL_LABEL} from './recoll.js?v=24';
 
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -253,11 +253,15 @@ const VERIF_LS='totalrecoll.verifications.v2';
 try{ localStorage.removeItem('totalrecoll.verifications'); }catch{}
 try{ state.verif=JSON.parse(localStorage.getItem(VERIF_LS)||'{}'); }catch{ state.verif={}; }
 let verifRev=0; const saveVerif=()=>{ verifRev++; try{ localStorage.setItem(VERIF_LS,JSON.stringify(state.verif)); }catch{} };
+// Contrôle des décisions d'ExtracTerre (18/11/2026) : enregistré à part, l'emporte sur la vérification des « Oui ».
+const CTRL_LS='totalrecoll.controles';
+try{ state.ctrl=JSON.parse(localStorage.getItem(CTRL_LS)||'{}'); }catch{ state.ctrl={}; }
+const saveCtrl=()=>{ verifRev++; try{ localStorage.setItem(CTRL_LS,JSON.stringify(state.ctrl)); }catch{} };
 function researchData(){
   const parts=state.et.map(e=>e.research).filter(Boolean), key=parts.map(p=>p.ops.length).join(',')+'|'+state.et.map(e=>e.name).join(',')+'|'+(state.sf?.rows.length||0)+state.sfName;
   if(rsCache?.key!==key){ const m=mergeResearch(parts); rsCache={key,grids:m.grids,raw:researchRows(m,state.sf),rev:-1}; }
   if(rsCache.rev!==verifRev){ const eff={}; for(const g of rsCache.grids) Object.assign(eff,effectiveDecisions(verificationItems(rsCache.raw,g,state.verif))); // décisions propres + reprises (même phrase / même opération)
-    rsCache.rows=rsCache.raw.map(o=>({...o,searches:Object.fromEntries(Object.entries(o.searches).map(([gid,sr])=>{ const g=rsCache.grids.find(x=>String(x.id)===gid); return [gid,g?verifiedSearch(o,g,eff):sr]; }))})); rsCache.rev=verifRev; }
+    rsCache.rows=rsCache.raw.map(o=>({...o,searches:Object.fromEntries(Object.entries(o.searches).map(([gid,sr])=>{ const g=rsCache.grids.find(x=>String(x.id)===gid); return [gid,g?verifiedSearch(o,g,eff,state.ctrl):sr]; }))})); rsCache.rev=verifRev; }
   return rsCache;
 }
 const researchAll=()=>researchData().rows;
@@ -278,11 +282,12 @@ function renderResearch(){
   $('rsRef').innerHTML=opt('',`Tous les référentiels (${refs.length})`,f.ref)+refs.map(r=>opt(r,`${r} (${cnt(rows,o=>o.refs.includes(r)&&o.searches[g.id])})`,f.ref)).join('');
   $('rsOwner').innerHTML=opt('',`Tous les maîtres d’ouvrage (${owners.length})`,f.owner)+owners.map(o=>opt(o,o,f.owner)).join('');
   const st=researchStats(researchSelected(),g), N=st.rows.length, n=v=>v.toLocaleString('fr-FR');
-  { const it=verificationItems(researchSelected(true),g,state.verif); for(const [m,id] of [['oui','nVerif'],['partiel','nTrancher']]){ const pr=verificationProgress(it.filter(i=>i.status===m)); $(id).textContent=pr.todo?`(${pr.todo.toLocaleString('fr-FR')})`:''; } }
+  { const it=verificationItems(researchSelected(true),g,state.verif); for(const [m,id] of [['oui','nVerif'],['partiel','nTrancher']]){ const pr=verificationProgress(it.filter(i=>i.status===m)); $(id).textContent=pr.todo?`(${pr.todo.toLocaleString('fr-FR')})`:''; }
+    const pc=verificationProgress(controlItems(researchSelected(true),g,state.ctrl)); $('nCtrl').textContent=pc.todo?`(${pc.todo.toLocaleString('fr-FR')})`:''; }
   const notSf=st.rows.filter(o=>!o.inSf).length;
   box.innerHTML=`<div class="rs-kpis"><div class="rs-kpi"><b>${n(N)}</b><span>opération(s) analysée(s) avec « ${esc(g.name||g.id)} »${notSf?` · ${notSf} hors Tous contrats`:''}</span></div>
     <div class="rs-kpi"><b>${n(new Set(st.rows.map(o=>o.owner)).size)}</b><span>maître(s) d’ouvrage</span></div>
-    ${(()=>{ const it=verificationItems(researchSelected(true),g,state.verif); return ['oui','partiel'].map(m=>{ const pr=verificationProgress(it.filter(i=>i.status===m)); return pr.total?`<div class="rs-kpi"><b>${n(pr.ok+pr.ko+pr.pa+pr.so)} / ${n(pr.total)}</b><span>${VF_MODE[m].what} (${n(pr.ok)} oui · ${n(pr.pa)} partiels · ${n(pr.ko)} non · ${n(pr.so)} sans objet)</span></div>`:''; }).join(''); })()}
+    ${(()=>{ const it=verificationItems(researchSelected(true),g,state.verif); return ['oui','partiel'].map(m=>{ const pr=verificationProgress(it.filter(i=>i.status===m)); return pr.total?`<div class="rs-kpi"><b>${n(pr.ok+pr.ko+pr.pa+pr.so)} / ${n(pr.total)}</b><span>${VF_MODE[m].what} (${n(pr.ok)} oui · ${n(pr.pa)} partiels · ${n(pr.ko)} non · ${n(pr.so)} sans objet)</span></div>`:''; }).join('')+(()=>{ const ci=controlItems(researchSelected(true),g,state.ctrl), pr=verificationProgress(ci), chg=ci.filter(i=>i.decision&&i.decision!==i.et).length; return pr.total?`<div class="rs-kpi"><b>${n(pr.total-pr.todo)} / ${n(pr.total)}</b><span>${VF_MODE.ctrl.what} (${n(chg)} modifiée(s))</span></div>`:''; })(); })()}
     ${st.themes.map(x=>`<div class="rs-kpi"><b>${pct1(x.ok,x.applicable)} %</b><span>${esc(x.t.name)} : indices suffisants (${x.ok} / ${x.applicable})</span></div>`).join('')}</div>
   ${N?st.themes.map(x=>`<section class="rs-theme"><h3>${esc(x.t.name)}</h3><p class="muted">${x.applicable} opération(s) concernée(s) · minimum ${Number(x.t.min)||0} critère(s)</p>
     <div class="rs-legend"><span><i style="background:var(--et)"></i>Indice trouvé</span><span><i style="background:var(--rust)"></i>Indice contraire / hors seuil</span></div>
@@ -305,20 +310,22 @@ function exportResearchCsv(){
 /* ---------- Vérification des « Oui » : tableau ou cartes à glisser (accepter / rejeter) ---------- */
 // 18/11/2026 — deux options distinctes : « oui » = contrôle manuel des exigences validées par ExtracTerre ; « partiel » = décision
 // sur les éléments qu'ExtracTerre n'a pas pu trancher. Mêmes décisions enregistrées (clé inchangée), simple filtre par statut.
-const VF_MODE={oui:{title:'Contrôle des exigences validées',btn:'Contrôler les « Oui »',what:'« Oui » contrôlés'},partiel:{title:'Éléments à trancher',btn:'Trancher les « Partiel »',what:'« Partiel » tranchés'}};
-const vf={mode:'oui',view:'table',crit:'',status:'todo',limit:150,idx:0,history:[]};
+const VF_MODE={oui:{title:'Contrôle des exigences validées',btn:'Contrôler les « Oui »',what:'« Oui » contrôlés'},partiel:{title:'Éléments à trancher',btn:'Trancher les « Partiel »',what:'« Partiel » tranchés'},
+  ctrl:{title:'Contrôle des décisions d’ExtracTerre',what:'décisions d’ExtracTerre contrôlées'}};
+const vf={mode:'oui',view:'table',crit:'',et:'',status:'todo',limit:150,idx:0,history:[]};
+const vStore=()=>vf.mode==='ctrl'?state.ctrl:state.verif, vSave=()=>vf.mode==='ctrl'?saveCtrl():saveVerif();
 function verifData(){ const {grids}=researchData(), g=grids.find(x=>x.id===state.rs.grid); if(!g) return {g:null,all:[],list:[]};
-  const all=verificationItems(researchSelected(true),g,state.verif).filter(i=>i.status===vf.mode);
-  const list=all.filter(i=>(!vf.crit||i.crit.id===vf.crit)&&(vf.status==='all'||(vf.status==='todo'?!i.decision:i.decision===vf.status)));
+  const all=vf.mode==='ctrl'?controlItems(researchSelected(true),g,state.ctrl):verificationItems(researchSelected(true),g,state.verif).filter(i=>i.status===vf.mode);
+  const list=all.filter(i=>(!vf.crit||i.crit.id===vf.crit)&&(vf.mode!=='ctrl'||!vf.et||i.et===vf.et)&&(vf.status==='all'||(vf.status==='todo'?!i.decision:i.decision===vf.status)));
   return {g,all,list}; }
 // Texte de la preuve avec les passages qui ont déclenché le critère (mots-clés) et les mots de contexte surlignés.
 const markHtml=(text,crit)=>{ const t=String(text||''), rs=highlightRanges(t,crit); let out='',k=0; for(const r of rs){ out+=esc(t.slice(k,r.s))+`<mark class="hl-${r.kind}">${esc(t.slice(r.s,r.e))}</mark>`; k=r.e; } return out+esc(t.slice(k)); };
 const evHtml=(e,crit)=>`<div class="ev"><div class="ev-src">${esc(e.doc||'Document non précisé')}${e.page!==''&&e.page!=null?` · p. ${esc(String(e.page))}`:''}</div><div class="ev-line">${markHtml(e.line,crit)}</div>${e.ctx&&e.ctx.trim()!==String(e.line||'').trim()?`<div class="ev-ctx">${markHtml(e.ctx,crit)}</div>`:''}</div>`;
-const reqHtml=i=>`<div class="req-label">${esc(i.crit.label)}</div><div class="req-meta">${esc(i.crit.theme||'')} · réponse : <b>${i.status==='partiel'?'Partiel':'Oui'}</b>${i.manual?' (saisie manuelle dans ExtracTerre)':''}${i.value&&!/^Oui$/i.test(String(i.value))?` · ${esc(String(i.value))}`:''}</div>${i.crit.description?`<div class="req-desc">${esc(i.crit.description)}</div>`:''}`;
+const reqHtml=i=>`<div class="req-label">${esc(i.crit.label)}</div><div class="req-meta">${esc(i.crit.theme||'')} · ${i.et?'décision ExtracTerre':'réponse'} : <b>${i.et?CTRL_LABEL[i.et]:i.status==='partiel'?'Partiel':'Oui'}</b>${i.manual?' (saisie manuelle dans ExtracTerre)':''}${i.value&&!/^Oui$/i.test(String(i.value))?` · ${esc(String(i.value))}`:''}</div>${i.crit.description?`<div class="req-desc">${esc(i.crit.description)}</div>`:''}`;
 const opHtml=o=>`<b>${esc(o.contract||o.ope||'—')}</b> ${esc(o.name)}<small>${esc(o.owner)} · ${esc(o.refs.join(' / '))}</small>`;
 function verifProgress(all){ const p=verificationProgress(all), pc=p.total?Math.round((p.ok+p.ko+p.pa+p.so)/p.total*100):0;
   $('verifProgress').innerHTML=`<div class="vp-bar" role="progressbar" aria-label="Avancement de la vérification" aria-valuenow="${pc}" aria-valuemin="0" aria-valuemax="100"><span class="ok" style="width:${p.total?p.ok/p.total*100:0}%"></span><span class="pa" style="width:${p.total?p.pa/p.total*100:0}%"></span><span class="ko" style="width:${p.total?p.ko/p.total*100:0}%"></span><span class="so" style="width:${p.total?p.so/p.total*100:0}%"></span></div><small>${(p.ok+p.ko+p.pa+p.so).toLocaleString('fr-FR')} / ${p.total.toLocaleString('fr-FR')} vérifiés · ✓ ${p.ok.toLocaleString('fr-FR')} · ◐ ${p.pa.toLocaleString('fr-FR')} · ✗ ${p.ko.toLocaleString('fr-FR')} · ⊘ ${p.so.toLocaleString('fr-FR')}</small>`; }
-function setDecision(key,d){ const prev=state.verif[key]?.d||''; if(d===prev||!d) delete state.verif[key]; else state.verif[key]={d,at:new Date().toISOString()}; saveVerif(); return prev; }
+function setDecision(key,d){ const st=vStore(), prev=st[key]?.d||''; if(d===prev||!d) delete st[key]; else st[key]={d,at:new Date().toISOString()}; vSave(); return prev; }
 function renderVerif(){
   const {g,all,list}=verifData(), body=$('verifBody');
   if(!g){ body.innerHTML='<p class="muted">Aucune grille de recherche chargée.</p>'; return; }
@@ -327,7 +334,7 @@ function renderVerif(){
   const crits=(g.criteria||[]).filter(c=>all.some(i=>i.crit.id===c.id)), cnt=id=>all.filter(i=>i.crit.id===id&&!i.decision).length;
   if(vf.crit&&!crits.some(c=>c.id===vf.crit)) vf.crit='';
   $('vfCrit').innerHTML=`<option value="">Tous les critères (${all.filter(i=>!i.decision).length} à vérifier)</option>`+crits.map(c=>`<option value="${esc(c.id)}"${c.id===vf.crit?' selected':''}>${esc(c.theme)} — ${esc(c.label)} (${cnt(c.id)})</option>`).join('');
-  $('vfStatus').value=vf.status; document.querySelectorAll('#verifDlg [data-view]').forEach(b=>b.setAttribute('aria-checked',String(b.dataset.view===vf.view)));
+  $('vfEt').hidden=vf.mode!=='ctrl'; $('vfEt').value=vf.et; $('vfStatus').value=vf.status; document.querySelectorAll('#verifDlg [data-view]').forEach(b=>b.setAttribute('aria-checked',String(b.dataset.view===vf.view)));
   verifProgress(all);
   if(!list.length){ body.innerHTML=`<p class="verif-empty">${vf.status==='todo'?'Tout est vérifié pour cette sélection ✓':'Aucune réponse pour ce filtre.'}</p>`; return; }
   if(vf.view==='cards') return renderVerifCard(list);
@@ -345,7 +352,7 @@ function renderVerifCard(list){
       <div class="vstamp ok" aria-hidden="true">OUI</div><div class="vstamp ko" aria-hidden="true">NON</div><div class="vstamp pa" aria-hidden="true">PARTIEL</div><div class="vstamp so" aria-hidden="true">SANS OBJET</div>
       <p class="vc-op">${esc(i.op.contract||i.op.ope||'—')} · ${esc(i.op.name)}</p>
       <h3 class="vc-q">${esc(q)} ?</h3>
-      ${i.status==='partiel'?'<p class="vc-partial">Réponse ExtracTerre : Partiel</p>':''}
+      ${i.et?`<p class="vc-et et-${i.et}">Décision ExtracTerre : <b>${CTRL_LABEL[i.et]}</b>${i.decision?` · votre contrôle : <b>${CTRL_LABEL[i.decision]}</b>`:''}</p>`:i.status==='partiel'?'<p class="vc-partial">Réponse ExtracTerre : Partiel</p>':''}
       ${e?`<blockquote class="vc-quote">${markHtml(e.line,i.crit)}</blockquote>
       <p class="vc-src">${esc(e.doc||'Document non précisé')}${e.page!==''&&e.page!=null?` · page ${esc(String(e.page))}`:''}</p>`:'<p class="vc-quote vc-none">Aucune preuve exportée</p>'}
       ${(e&&e.ctx&&e.ctx.trim()!==String(e.line||'').trim())||more.length||i.crit.description?`<details class="vc-more"><summary>Contexte${more.length?` · ${more.length} autre(s) preuve(s)`:''}${i.crit.description?' · précision de l’exigence':''}</summary>
@@ -361,14 +368,16 @@ function renderVerifCard(list){
   const end=()=>{ if(x0===null) return; x0=null; card.classList.remove('drag'); if(dy<-110&&Math.abs(dy)>Math.abs(dx)) cardDecide('pa'); else if(dy>110&&Math.abs(dy)>Math.abs(dx)) cardDecide('so'); else if(Math.abs(dx)>110) cardDecide(dx>0?'ok':'ko'); else { card.style.transform=''; card.dataset.swipe=''; } };
   card.addEventListener('pointerup',end); card.addEventListener('pointercancel',end);
 }
-function cardDecide(d){ const {list}=verifData(), i=list[vf.idx]; if(!i) return; const prev=state.verif[i.key]?.d||''; if(prev!==d) setDecision(i.key,d); vf.history.push({key:i.key,prev});
+function cardDecide(d){ const {list}=verifData(), i=list[vf.idx]; if(!i) return; const prev=vStore()[i.key]?.d||''; if(prev!==d) setDecision(i.key,d); vf.history.push({key:i.key,prev});
   const card=$('vcard'); if(card){ card.style.transition='transform .22s ease-out,opacity .22s'; card.style.transform=d==='pa'?'translateY(-500px)':d==='so'?'translateY(500px)':`translateX(${d==='ok'?600:-600}px) rotate(${d==='ok'?18:-18}deg)`; card.style.opacity='0'; }
   setTimeout(()=>{ if(vf.status!=='todo') vf.idx++; renderVerif(); },200); }
-function cardUndo(){ const h=vf.history.pop(); if(!h) return; if(h.prev) state.verif[h.key]={d:h.prev,at:new Date().toISOString()}; else delete state.verif[h.key]; saveVerif();
+function cardUndo(){ const h=vf.history.pop(); if(!h) return; const st=vStore(); if(h.prev) st[h.key]={d:h.prev,at:new Date().toISOString()}; else delete st[h.key]; vSave();
   const {list}=verifData(), k=list.findIndex(i=>i.key===h.key); if(k>=0) vf.idx=k; renderVerif(); }
 function openVerif(mode){ if(mode) vf.mode=mode; vf.idx=0; vf.history=[]; vf.limit=150; renderVerif(); $('verifDlg').showModal(); }
 $('rsVerif').addEventListener('click',()=>openVerif('oui'));
 $('rsTrancher').addEventListener('click',()=>openVerif('partiel'));
+$('rsCtrl').addEventListener('click',()=>openVerif('ctrl'));
+$('vfEt').addEventListener('change',e=>{ vf.et=e.target.value; vf.idx=0; vf.limit=150; renderVerif(); });
 document.querySelectorAll('#verifDlg [data-mode]').forEach(b=>b.addEventListener('click',()=>{ vf.mode=b.dataset.mode; vf.crit=''; vf.idx=0; vf.limit=150; vf.history=[]; renderVerif(); }));
 $('verifClose').addEventListener('click',()=>$('verifDlg').close());
 $('verifDlg').addEventListener('close',()=>renderResearch());
@@ -378,20 +387,21 @@ document.querySelectorAll('#verifDlg [data-view]').forEach(b=>b.addEventListener
 $('verifBody').addEventListener('click',e=>{
   if(e.target.closest('#vfMore')){ vf.limit+=150; renderVerif(); return; }
   const c=e.target.closest('[data-card]'); if(c){ if(c.dataset.card==='undo') cardUndo(); else cardDecide(c.dataset.card); return; }
-  const b=e.target.closest('.vbtn'); if(!b) return; const tr=b.closest('tr'), key=tr.dataset.key; setDecision(key,b.dataset.d); const d=state.verif[key]?.d||'';
+  const b=e.target.closest('.vbtn'); if(!b) return; const tr=b.closest('tr'), key=tr.dataset.key; setDecision(key,b.dataset.d); const d=vStore()[key]?.d||'';
   tr.className=d?'d-'+d:''; tr.querySelectorAll('.vbtn').forEach(x=>{ const on=x.dataset.d===d; x.classList.toggle('on',on); x.setAttribute('aria-pressed',String(on)); }); verifProgress(verifData().all); });
 $('verifDlg').addEventListener('keydown',e=>{ if(vf.view!=='cards'||e.target.closest('select,input')) return;
   if(e.key==='ArrowRight'){ e.preventDefault(); cardDecide('ok'); } else if(e.key==='ArrowLeft'){ e.preventDefault(); cardDecide('ko'); } else if(e.key==='ArrowUp'){ e.preventDefault(); cardDecide('pa'); } else if(e.key==='ArrowDown'){ e.preventDefault(); cardDecide('so'); } else if(e.key==='Backspace'){ e.preventDefault(); cardUndo(); } });
-$('vfReset').addEventListener('click',()=>{ const n=Object.keys(state.verif).length; if(!n){ toast('Aucune décision à effacer.','info'); return; }
+$('vfReset').addEventListener('click',()=>{ const n=Object.keys(vStore()).length; if(!n){ toast('Aucune décision à effacer.','info'); return; }
   if($('vfReset').dataset.armed!=='1'){ $('vfReset').dataset.armed='1'; $('vfReset').textContent=`Confirmer : effacer ${n} décision(s)`; setTimeout(()=>{ $('vfReset').dataset.armed=''; $('vfReset').textContent='Tout effacer'; },5000); return; }
-  state.verif={}; saveVerif(); $('vfReset').dataset.armed=''; $('vfReset').textContent='Tout effacer'; vf.history=[]; vf.idx=0; renderVerif(); toast(`${n} décision(s) effacée(s).`,'success'); });
-$('vfExport').addEventListener('click',()=>{ const blob=new Blob([JSON.stringify({format:'totalrecoll-verifications',version:1,exportedAt:new Date().toISOString(),decisions:state.verif},null,1)],{type:'application/json'});
+  if(vf.mode==='ctrl') state.ctrl={}; else state.verif={}; vSave(); $('vfReset').dataset.armed=''; $('vfReset').textContent='Tout effacer'; vf.history=[]; vf.idx=0; renderVerif(); toast(`${n} décision(s) effacée(s).`,'success'); });
+$('vfExport').addEventListener('click',()=>{ const blob=new Blob([JSON.stringify({format:'totalrecoll-verifications',version:1,exportedAt:new Date().toISOString(),decisions:state.verif,controls:state.ctrl},null,1)],{type:'application/json'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`TotalRecoll_verifications_${new Date().toISOString().slice(0,10)}.json`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
-  toast(`${Object.keys(state.verif).length} décision(s) exportée(s).`,'success'); });
+  toast(`${Object.keys(state.verif).length} décision(s) et ${Object.keys(state.ctrl).length} contrôle(s) exporté(s).`,'success'); });
 $('vfImport').addEventListener('change',async e=>{ const f=e.target.files?.[0]; if(!f) return;
   try{ const j=JSON.parse(await f.text()); if(j?.format!=='totalrecoll-verifications'||typeof j.decisions!=='object') throw new Error('Ce fichier n’est pas un export de vérifications TotalRecoll.');
     let n=0; for(const [k,v] of Object.entries(j.decisions)){ if(!v||!['ok','ko','pa','so'].includes(v.d)) continue; const cur=state.verif[k]; if(!cur||String(v.at||'')>=String(cur.at||'')){ state.verif[k]=v; n++; } }
-    saveVerif(); renderVerif(); toast(`${n} décision(s) reprise(s).`,'success'); }catch(err){ toast(err.message||String(err),'error'); }
+    let m=0; for(const [k,v] of Object.entries(j.controls&&typeof j.controls==='object'?j.controls:{})){ if(!v||!['ok','ko','pa','so'].includes(v.d)) continue; const cur=state.ctrl[k]; if(!cur||String(v.at||'')>=String(cur.at||'')){ state.ctrl[k]=v; m++; } }
+    saveVerif(); saveCtrl(); renderVerif(); toast(`${n} décision(s) et ${m} contrôle(s) repris.`,'success'); }catch(err){ toast(err.message||String(err),'error'); }
   e.target.value=''; });
 
 /* ---------- Confort d'été : valeurs normalisées par bâtiment ---------- */

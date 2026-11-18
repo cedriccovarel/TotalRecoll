@@ -371,6 +371,7 @@ mark.hl-c{background:transparent;color:var(--et-ink);text-decoration:underline;t
 .vc-op{margin:0 0 10px;font-size:13px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .vcard .vc-q{margin:0 0 4px;font:700 28px/1.2 "Chakra Petch",ui-sans-serif,sans-serif;letter-spacing:0;text-transform:none;color:var(--ink)}
 .vc-partial{margin:4px 0 0;color:var(--check);font-weight:600}
+.vc-et{margin:4px 0 0;font-size:.95em}.vc-et.et-ok b{color:var(--et)}.vc-et.et-ko b{color:var(--rust)}.vc-et.et-pa b{color:var(--check)}
 .vc-quote{margin:18px 0 8px;padding:14px 18px;border-left:4px solid var(--sf);background:var(--sunk);border-radius:0 6px 6px 0;font-size:21px;line-height:1.45;color:var(--ink)}
 .vc-none{color:var(--ink-3);font-size:16px}
 .vc-src{margin:0;font-size:13px;color:var(--sf-ink)}

@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Michroma&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="styles.css?v=18">
+<link rel="stylesheet" href="styles.css?v=19">
 </head>
 <body>
 <header class="top">
@@ -138,6 +138,7 @@
         <input id="rsQ" type="search" placeholder="Rechercher un contrat, une OPE, une opération" aria-label="Rechercher une opération">
         <button class="btn small" id="rsVerif" type="button" title="Contrôler à la main, carte par carte, les exigences validées (« Oui ») par ExtracTerre, avec leur preuve">✔ Contrôler les « Oui » <b id="nVerif"></b></button>
         <button class="btn small" id="rsTrancher" type="button" title="Trancher les exigences qu’ExtracTerre n’a pas pu trancher (« Partiel »)">◐ Trancher les « Partiel » <b id="nTrancher"></b></button>
+        <button class="btn small" id="rsCtrl" type="button" title="Contrôler une à une les décisions d’ExtracTerre (Oui, Partiel, Non) avec leur preuve, et les changer si besoin">⚖ Contrôler les décisions d’ExtracTerre <b id="nCtrl"></b></button>
         <button class="btn small" id="rsCsv" type="button">Exporter en CSV</button>
       </div>
       <div id="research"></div>
@@ -196,8 +197,10 @@
     <div class="seg" role="radiogroup" aria-label="Option">
       <button type="button" role="radio" data-mode="oui" aria-checked="true" title="Exigences validées par ExtracTerre">✔ Contrôle des « Oui »</button>
       <button type="button" role="radio" data-mode="partiel" aria-checked="false" title="Exigences qu’ExtracTerre n’a pas pu trancher">◐ À trancher</button>
+      <button type="button" role="radio" data-mode="ctrl" aria-checked="false" title="Toutes les décisions d’ExtracTerre (Oui, Partiel, Non) : les confirmer ou les changer">⚖ Décisions d’ExtracTerre</button>
     </div>
     <select id="vfCrit" aria-label="Critère"></select>
+    <select id="vfEt" aria-label="Décision d’ExtracTerre" hidden><option value="">Toutes les décisions d’ExtracTerre</option><option value="ok">ExtracTerre : Oui</option><option value="pa">ExtracTerre : Partiel</option><option value="ko">ExtracTerre : Non</option></select>
     <select id="vfStatus" aria-label="Statut de vérification">
       <option value="todo">À vérifier</option><option value="ok">Acceptés</option><option value="ko">Rejetés</option><option value="pa">Partiels</option><option value="so">Sans objet</option><option value="all">Tous</option>
     </select>
@@ -230,6 +233,6 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="newosb-bridge.js?v=6.66.0"></script>
-<script type="module" src="app.js?v=31"></script>
+<script type="module" src="app.js?v=32"></script>
 </body>
 </html>

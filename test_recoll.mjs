@@ -287,3 +287,15 @@ console.log('Carte confort d’été (zones climatiques) OK');
   assert.deepEqual(highlightRanges('rien à voir',crit),[]);
   { const t2='Verrou automatique anti-relevage du tablier.'; assert.deepEqual(highlightRanges(t2,{keywords:['anti relevage'],context:[]}).map(x=>t2.slice(x.s,x.e)),['anti-relevage']); }
   console.log('Surlignage des preuves OK'); }
+
+// Contrôle des décisions d'ExtracTerre (cartes Oui / Partiel / Non ; la décision manuelle remplace celle d'ExtracTerre).
+{ const {controlItems,verifiedSearch,verifKey}=await import('./recoll.js');
+  const grid={id:'g',themes:[{name:'P',min:1,required:[]}],criteria:[{id:'a',theme:'P',label:'A'},{id:'b',theme:'P',label:'B'},{id:'c',theme:'P',label:'C'},{id:'d',theme:'P',label:'D'}]};
+  const o={contract:'00009999',ope:'',name:'F',searches:{g:{criteria:{a:{found:true,evidence:[{line:'x',ok:true}]},b:{found:false,partial:true,evidence:[{line:'y'}]},c:{found:false,contrary:true,evidence:[{line:'z',negative:true}]},d:{found:false}},themes:{P:{applicable:true,found:1,ok:true}}}}};
+  const k=c=>verifKey(o,'g',c);
+  assert.equal(controlItems([o],grid,{}).length,3,'non trouvé exclu');
+  assert.equal(verifiedSearch(o,grid,{},{[k('a')]:{d:'ko'}}).criteria.a.contrary,true);
+  assert.equal(verifiedSearch(o,grid,{},{[k('c')]:{d:'ok'}}).criteria.c.found,true);
+  assert.equal(verifiedSearch(o,grid,{[k('a')]:{d:'ko'}},{[k('a')]:{d:'ok'}}).criteria.a.found,true,'le contrôle prime');
+  console.log('Contrôle des décisions OK');
+}

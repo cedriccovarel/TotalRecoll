@@ -399,11 +399,35 @@ export function verificationItems(rows,grid,decisions={}){
       if(src){ i.decision='ok'; i.inherited=src.crit.label||src.crit.id; } } }
   return out;
 }
+/* 18/11/2026 — Contrôle des décisions d'ExtracTerre : une carte par exigence et par opération dont ExtracTerre a décidé Oui,
+   Partiel ou Non (avec ses preuves). La décision manuelle remplace celle d'ExtracTerre pour cette opération seulement (aucune
+   reprise vers d'autres cartes) et l'emporte sur la vérification des « Oui ». Enregistrée à part (totalrecoll.controles). */
+export const etDecision=x=>!x?'':x.partial?'pa':x.found?'ok':x.contrary?'ko':'';
+export const CTRL_LABEL={ok:'Oui',pa:'Partiel',ko:'Non',so:'Sans objet'};
+export function controlItems(rows,grid,controls={}){
+  const out=[];
+  for(const o of rows){ const s=o.searches?.[grid.id]; if(!s) continue;
+    for(const c of grid.criteria||[]){ const x=s.criteria?.[c.id], et=etDecision(x); if(!et) continue;
+      const all=(x.evidence||[]).filter(Boolean), pos=all.filter(e=>e.ok!==false&&!e.negative), neg=all.filter(e=>e.ok===false||e.negative);
+      const ev=et==='ko'?(neg.length?neg:all):(pos.length?pos:all), key=verifKey(o,grid.id,c.id);
+      out.push({key,op:o,crit:c,et,status:et==='pa'?'partiel':et==='ok'?'oui':'non',manual:x.manual||'',value:x.value??'',evidence:ev,decision:controls[key]?.d||''}); } }
+  return out;
+}
+// Décision de contrôle appliquée à un critère (absolue : ce que l'utilisateur a décidé, quel que soit ExtracTerre).
+function controlled(x,d){
+  if(d==='ok') return {...x,found:true,partial:false,contrary:false,controlled:true,value:'Oui (contrôle)'};
+  if(d==='pa') return {...x,found:false,partial:true,contrary:false,controlled:true,value:'Partiel (contrôle)'};
+  if(d==='ko') return {...x,found:false,partial:false,contrary:true,controlled:true,value:'Non conforme (contrôle)'};
+  return {...x,found:false,partial:false,contrary:false,controlled:true,offTopic:true,value:''};
+}
 // Résultats d'une grille pour une opération, avec les décisions appliquées (rejet = non trouvé ; thèmes recalculés).
-export function verifiedSearch(o,grid,decisions={}){
+// controls (contrôle des décisions d'ExtracTerre) l'emporte sur decisions (vérification des « Oui »).
+export function verifiedSearch(o,grid,decisions={},controls={}){
   const s=o.searches?.[grid.id]; if(!s) return s;
   let changed=false; const criteria={};
-  for(const [cid,x] of Object.entries(s.criteria||{})){ const d=decisions[verifKey(o,grid.id,cid)]?.d;
+  for(const [cid,x] of Object.entries(s.criteria||{})){ const k=verifKey(o,grid.id,cid), cd=controls[k]?.d;
+    if(cd&&etDecision(x)){ const y=controlled(x,cd); criteria[cid]=y; if(etDecision(y)!==etDecision(x)) changed=true; continue; }
+    const d=decisions[k]?.d;
     // « Non » : la phrase est bien liée à l'exigence mais ne la remplit pas → indice contraire (non conforme).
     if(d==='ko'&&(x.found||x.partial)){ criteria[cid]={...x,found:false,partial:false,contrary:true,rejected:true,value:'Non conforme (vérification)'}; changed=true; }
         // « Sans objet » : compté comme nul (ni trouvé, ni contraire), comme si la phrase n'avait pas été lue.
