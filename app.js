@@ -1,5 +1,5 @@
-import {REL_ORDER,REL_LABEL,relKey,recoll,opsFromSession,opsFromBuildingRows,CONTRACT_COL,OPE_COL,STATUS_COL,BUILDING_COL,KINDS,TECH_LABELS,targetColumn,empty,anruIndex,ANRU_COL,ANRU_QP_COL,confortOf,oddValue,COLUMN_KEY,sortRowIndexes,ZONES,zoneOfDep,depOfRow,confortStats,SYSTEMS,DH_ZT,DH_ZNT,publishTable,researchFromSession,mergeResearch,researchRows,researchStats,NO_REF} from './recoll.js?v=24';
-import {verificationItems,verifiedSearch,verificationProgress,highlightRanges,effectiveDecisions,controlItems,CTRL_LABEL} from './recoll.js?v=24';
+import {REL_ORDER,REL_LABEL,relKey,recoll,opsFromSession,opsFromBuildingRows,CONTRACT_COL,OPE_COL,STATUS_COL,BUILDING_COL,KINDS,TECH_LABELS,targetColumn,empty,anruIndex,ANRU_COL,ANRU_QP_COL,confortOf,oddValue,COLUMN_KEY,sortRowIndexes,ZONES,zoneOfDep,depOfRow,confortStats,SYSTEMS,DH_ZT,DH_ZNT,publishTable,researchFromSession,mergeResearch,researchRows,researchStats,NO_REF} from './recoll.js?v=25';
+import {verificationItems,verifiedSearch,verificationProgress,highlightRanges,effectiveDecisions,controlItems,CTRL_LABEL} from './recoll.js?v=25';
 
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -325,7 +325,8 @@ const reqHtml=i=>`<div class="req-label">${esc(i.crit.label)}</div><div class="r
 const opHtml=o=>`<b>${esc(o.contract||o.ope||'—')}</b> ${esc(o.name)}<small>${esc(o.owner)} · ${esc(o.refs.join(' / '))}</small>`;
 function verifProgress(all){ const p=verificationProgress(all), pc=p.total?Math.round((p.ok+p.ko+p.pa+p.so)/p.total*100):0;
   $('verifProgress').innerHTML=`<div class="vp-bar" role="progressbar" aria-label="Avancement de la vérification" aria-valuenow="${pc}" aria-valuemin="0" aria-valuemax="100"><span class="ok" style="width:${p.total?p.ok/p.total*100:0}%"></span><span class="pa" style="width:${p.total?p.pa/p.total*100:0}%"></span><span class="ko" style="width:${p.total?p.ko/p.total*100:0}%"></span><span class="so" style="width:${p.total?p.so/p.total*100:0}%"></span></div><small>${(p.ok+p.ko+p.pa+p.so).toLocaleString('fr-FR')} / ${p.total.toLocaleString('fr-FR')} vérifiés · ✓ ${p.ok.toLocaleString('fr-FR')} · ◐ ${p.pa.toLocaleString('fr-FR')} · ✗ ${p.ko.toLocaleString('fr-FR')} · ⊘ ${p.so.toLocaleString('fr-FR')}</small>`; }
-function setDecision(key,d){ const st=vStore(), prev=st[key]?.d||''; if(d===prev||!d) delete st[key]; else st[key]={d,at:new Date().toISOString()}; vSave(); return prev; }
+// 19/11/2026 — la décision garde la phrase vue (line) : si ExtracTerre montre ensuite une autre phrase, la carte revient à vérifier.
+function setDecision(key,d){ const st=vStore(), it=vf.mode==='ctrl'?null:verifData().all.find(i=>i.key===key), prev=it?.stale?'':(st[key]?.d||''); if(d===prev||!d) delete st[key]; else { st[key]={d,at:new Date().toISOString(),...(it?{line:String(it.evidence[0]?.line||'')}:{})}; } vSave(); return prev; }
 function renderVerif(){
   const {g,all,list}=verifData(), body=$('verifBody');
   if(!g){ body.innerHTML='<p class="muted">Aucune grille de recherche chargée.</p>'; return; }
@@ -368,10 +369,10 @@ function renderVerifCard(list){
   const end=()=>{ if(x0===null) return; x0=null; card.classList.remove('drag'); if(dy<-110&&Math.abs(dy)>Math.abs(dx)) cardDecide('pa'); else if(dy>110&&Math.abs(dy)>Math.abs(dx)) cardDecide('so'); else if(Math.abs(dx)>110) cardDecide(dx>0?'ok':'ko'); else { card.style.transform=''; card.dataset.swipe=''; } };
   card.addEventListener('pointerup',end); card.addEventListener('pointercancel',end);
 }
-function cardDecide(d){ const {list}=verifData(), i=list[vf.idx]; if(!i) return; const prev=vStore()[i.key]?.d||''; if(prev!==d) setDecision(i.key,d); vf.history.push({key:i.key,prev});
+function cardDecide(d){ const {list}=verifData(), i=list[vf.idx]; if(!i) return; const prev=vStore()[i.key]||null; if((i.decision||'')!==d) setDecision(i.key,d); vf.history.push({key:i.key,prev});
   const card=$('vcard'); if(card){ card.style.transition='transform .22s ease-out,opacity .22s'; card.style.transform=d==='pa'?'translateY(-500px)':d==='so'?'translateY(500px)':`translateX(${d==='ok'?600:-600}px) rotate(${d==='ok'?18:-18}deg)`; card.style.opacity='0'; }
   setTimeout(()=>{ if(vf.status!=='todo') vf.idx++; renderVerif(); },200); }
-function cardUndo(){ const h=vf.history.pop(); if(!h) return; const st=vStore(); if(h.prev) st[h.key]={d:h.prev,at:new Date().toISOString()}; else delete st[h.key]; vSave();
+function cardUndo(){ const h=vf.history.pop(); if(!h) return; const st=vStore(); if(h.prev) st[h.key]=h.prev; else delete st[h.key]; vSave();
   const {list}=verifData(), k=list.findIndex(i=>i.key===h.key); if(k>=0) vf.idx=k; renderVerif(); }
 function openVerif(mode){ if(mode) vf.mode=mode; vf.idx=0; vf.history=[]; vf.limit=150; renderVerif(); $('verifDlg').showModal(); }
 $('rsVerif').addEventListener('click',()=>openVerif('oui'));

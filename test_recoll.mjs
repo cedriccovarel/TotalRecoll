@@ -299,3 +299,16 @@ console.log('Carte confort d’été (zones climatiques) OK');
   assert.equal(verifiedSearch(o,grid,{[k('a')]:{d:'ko'}},{[k('a')]:{d:'ok'}}).criteria.a.found,true,'le contrôle prime');
   console.log('Contrôle des décisions OK');
 }
+
+// Règles v4 d'ExtracTerre : décision prise sur une autre phrase = plus appliquée (gardée en mémoire).
+{ const {verificationItems,verifKey}=await import('./recoll.js');
+  const grid={id:'securite-logements',rulesVersion:4,themes:[{name:'H',min:1,required:[]}],criteria:[{id:'hall_sas',theme:'H',label:'Sas'},{id:'hall_ik08',theme:'H',label:'IK08'}]};
+  const o={contract:'00009998',ope:'',name:'F',searches:{'securite-logements':{criteria:{hall_sas:{found:true,evidence:[{line:'La porte du sas sera controlee par badge Vigik',ok:true}]},hall_ik08:{found:true,evidence:[{line:'platine IK08',ok:true}]}}}}};
+  const k=c=>verifKey(o,'securite-logements',c);
+  let it=verificationItems([o],grid,{[k('hall_sas')]:{d:'so'},[k('hall_ik08')]:{d:'ok'}});
+  assert.equal(it[0].decision,'','ancienne décision sans phrase, critère modifié → à revoir'); assert.equal(it[0].stale,true); assert.equal(it[1].decision,'ok','critère inchangé gardé');
+  it=verificationItems([o],grid,{[k('hall_sas')]:{d:'ok',line:'La porte du sas sera controlee par badge Vigik'}}); assert.equal(it[0].decision,'ok','même phrase');
+  it=verificationItems([o],grid,{[k('hall_sas')]:{d:'ok',line:'autre phrase'}}); assert.equal(it[0].decision,'','autre phrase');
+  it=verificationItems([o],{...grid,rulesVersion:3},{[k('hall_sas')]:{d:'so'}}); assert.equal(it[0].decision,'so','ancienne session : décision gardée');
+  console.log('Décisions et règles v4 OK');
+}

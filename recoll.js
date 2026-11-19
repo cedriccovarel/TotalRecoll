@@ -375,13 +375,24 @@ export function researchStats(rows,grid){
    l'utilisateur l'accepte ou la rejette. Une réponse rejetée ne compte plus comme trouvée (statistiques, CSV, thèmes recalculés). */
 export const verifKey=(o,gid,cid)=>`${researchKey(o)}|${gid}|${cid}`;
 const verifStatus=x=>!x?'':x.partial?'partiel':x.found?'oui':'';
+// 19/11/2026 — règles v4 d'ExtracTerre (3.0.5) : pour ces critères la phrase de preuve a changé ; une décision prise sur
+// l'ancienne phrase n'est plus appliquée (elle reste enregistrée et revient si l'on recharge l'ancienne session). Une décision
+// enregistrée avec sa phrase (line) ne vaut que pour cette phrase.
+export const RULES_CHANGED={'securite-logements':{4:['etage_escaliers','hall_sas','parking_pieton']}};
+const evLine=e=>String(e?.line||'').replace(/\s+/g,' ').trim();
+export function decisionApplies(dec,grid,critId,line){
+  if(!dec?.d) return false;
+  if(dec.line!=null) return evLine({line:dec.line})===evLine({line});
+  const ch=RULES_CHANGED[grid?.id]||{}; return !Object.entries(ch).some(([v,ids])=>(Number(grid?.rulesVersion)||0)>=Number(v)&&ids.includes(critId));
+}
 export function verificationItems(rows,grid,decisions={}){
-  const out=[];
+  const out=[], valid={};
   for(const o of rows){ const s=o.searches?.[grid.id]; if(!s) continue;
     for(const c of grid.criteria||[]){ const x=s.criteria?.[c.id], st=verifStatus(x); if(!st) continue;
       const ev=(x.evidence||[]).filter(e=>e&&e.ok!==false&&!e.negative);
-      const key=verifKey(o,grid.id,c.id);
-      out.push({key,op:o,crit:c,status:st,manual:x.manual||'',value:x.value??'',evidence:ev.length?ev:(x.evidence||[]),decision:decisions[key]?.d||''}); } }
+      const key=verifKey(o,grid.id,c.id), evidence=ev.length?ev:(x.evidence||[]), own=decisions[key], ok=decisionApplies(own,grid,c.id,evidence[0]?.line);
+      if(ok) valid[key]=own;
+      out.push({key,op:o,crit:c,status:st,manual:x.manual||'',value:x.value??'',evidence,decision:ok?own.d:'',...(own?.d&&!ok?{stale:true}:{})}); } }
   // 18/11/2026 — un Oui donné une fois dans une opération vaut pour les cartes en attente de cette même opération qui portent
   // sur le même critère (opération chargée deux fois) ou montrent la même phrase (« 44.2 » des fenêtres et du hall) : elles
   // sont validées d'office (decision 'ok', inherited) et ne sont plus redemandées. Rien n'est enregistré pour elles.
@@ -390,7 +401,7 @@ export function verificationItems(rows,grid,decisions={}){
   // partout où cette phrase est la preuve de cette exigence (CCTP types répétés). La décision propre à une carte l'emporte ; si la
   // même phrase a reçu plusieurs décisions, la plus récente est reprise.
   { const bySentence=new Map();
-    for(const i of out){ const own=decisions[i.key]; if(!own?.d) continue; const k=`${i.crit.id}|${line(i)}`; if(!line(i)) continue;
+    for(const i of out){ const own=valid[i.key]; if(!own?.d) continue; const k=`${i.crit.id}|${line(i)}`; if(!line(i)) continue;
       const prev=bySentence.get(k); if(!prev||String(own.at||'')>=String(prev.at||'')) bySentence.set(k,{d:own.d,at:own.at,from:i.op}); }
     for(const i of out){ if(i.decision) continue; const src=bySentence.get(`${i.crit.id}|${line(i)}`); if(src){ i.decision=src.d; i.inherited=`même phrase, ${src.from.contract||src.from.ope||src.from.name}`; i.sameSentence=true; } } }
   const byOp=new Map(); for(const i of out){ const k=opId(i.op); if(!byOp.has(k)) byOp.set(k,[]); byOp.get(k).push(i); }
