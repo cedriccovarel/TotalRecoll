@@ -173,6 +173,10 @@ $('reload').onclick=()=>{ $('load').hidden=false; $('summary').hidden=true; $('r
 $('full').onclick=()=>{ if(document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen?.(); };
 document.addEventListener('fullscreenchange',()=>{ $('full').textContent=document.fullscreenElement?'Quitter le plein écran':'Plein écran'; setTimeout(()=>state.map?.invalidateSize(),150); });
 
+// Panneau repliable (carte en grand).
+function setFold(on){ $('stage').classList.toggle('folded',on); $('fold').setAttribute('aria-expanded',String(!on)); const t=on?'Déplier le panneau':'Replier le panneau'; $('fold').title=t; $('fold').querySelector('.sr').textContent=t;
+  setTimeout(()=>state.map?.invalidateSize({pan:false}),50); }
+$('fold').onclick=()=>setFold(!$('stage').classList.contains('folded'));
 initMap(); renderLoad();
 fetch('../data/npnru.json').then(r=>r.ok?r.json():Promise.reject(new Error(`HTTP ${r.status}`)))
   .then(d=>{ state.anru=anruIndex(d); drawQuartiers(); run(); })
