@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Michroma&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="styles.css?v=19">
+<link rel="stylesheet" href="styles.css?v=20">
 </head>
 <body>
 <header class="top">
@@ -101,6 +101,7 @@
 
     <div class="panel" data-panel="map" hidden>
       <p class="muted" id="mapInfo"></p>
+      <p><button class="btn small" type="button" data-geo-open>📍 Géolocaliser les lignes sans coordonnées <b data-geo-count></b></button></p>
       <div id="map" role="region" aria-label="Carte des bâtiments géolocalisés"></div>
     </div>
 
@@ -112,6 +113,7 @@
           <legend>Mentions</legend>
           <div class="mentions-tools"><button class="btn quiet small" id="mentionsAll" type="button">Toutes</button><button class="btn quiet small" id="mentionsNone" type="button">Aucune</button></div>
           <button class="btn small" id="anruCsv" type="button">Exporter en CSV</button>
+          <button class="btn small" type="button" data-geo-open>📍 Lignes non géolocalisées <b data-geo-count></b></button>
           <div id="mentions"></div>
         </fieldset>
       </div>
@@ -216,6 +218,21 @@
   <div id="verifBody" class="verif-body"></div>
 </dialog>
 
+<dialog id="geoDlg" class="verif geo" aria-labelledby="geoTitle">
+  <header class="verif-head">
+    <div><h2 id="geoTitle">Lignes non géolocalisées</h2><p class="muted" id="geoSub"></p></div>
+    <button class="btn small" type="button" id="geoSave">Enregistrer dans la session</button>
+    <button class="btn quiet small" type="button" id="geoClose" aria-label="Fermer">Fermer</button>
+  </header>
+  <div class="verif-tools">
+    <input type="search" id="geoQ" placeholder="Filtrer (opération, contrat, commune…)" aria-label="Filtrer les lignes">
+    <label class="muted small"><input type="checkbox" id="geoNpnru"> Seulement les communes avec un quartier NPNRU</label>
+    <span class="grow"></span>
+    <span class="muted small">Saisissez l’adresse, choisissez le résultat IGN : la ligne est géolocalisée (carte, ANRU). « Enregistrer » l’écrit dans la session ExtracTerre.</span>
+  </div>
+  <div id="geoBody" class="verif-body geo-body"></div>
+</dialog>
+
 <dialog id="pubDlg" aria-labelledby="pubTitle">
   <form id="pubForm" method="dialog" autocomplete="off">
     <h3 id="pubTitle">Publier dans l’Observatoire</h3>
@@ -233,6 +250,6 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="newosb-bridge.js?v=6.66.0"></script>
-<script type="module" src="app.js?v=34"></script>
+<script type="module" src="app.js?v=35"></script>
 </body>
 </html>

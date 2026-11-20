@@ -331,3 +331,20 @@ console.log('Carte confort d’été (zones climatiques) OK');
   const old=recoll(sfh,opsFromSession({format:'extracterre-session',operations:[{identity:{contract:'00002001'},rows:[{building:'Bâtiment unique',cep:55}]}]},'old.json'));
   assert.equal(old.ecarts.length,0);
   console.log('Écarts Salesforce ↔ documents OK'); }
+// Adresses saisies dans TotalRecoll : appliquées aux bâtiments, écrites dans la session (tête + saisie manuelle du projet).
+{ const {withGeoFixes,geoFixKey,geoFixFromFeature,patchSessionOperation,patchSessionProject,GEO_FIX_SOURCE}=await import('./recoll.js');
+  const f=geoFixFromFeature({type:'Feature',geometry:{coordinates:[2.331,48.869]},properties:{label:'1 Rue de la Paix 75002 Paris',name:'1 Rue de la Paix',postcode:'75002',city:'Paris',citycode:'75102',type:'housenumber',score:.97}});
+  assert.equal(f.lat,48.869); assert.equal(f.postcode,'75002'); assert.match(f.precision,/Adresse exacte/);
+  assert.equal(geoFixFromFeature({geometry:{coordinates:[2,48]},properties:{type:'municipality'}}),null,'commune seule refusée');
+  const ops=opsFromSession({format:'extracterre-session',operations:[{id:'p-1',identity:{contract:'00003001'},rows:[{building:'Bâtiment A',cep:50},{building:'Bâtiment B'}]}]},'s.json');
+  assert.equal(ops[0].id,'p-1');
+  const key=geoFixKey('s.json',ops[0],'Bâtiment B'); const o2=withGeoFixes(ops[0],'s.json',{[key]:f});
+  assert.equal(o2.buildings[1]['Latitude'],48.869); assert.equal(o2.buildings[1]['Adresse'],'1 Rue de la Paix'); assert.equal(ops[0].buildings[1]['Latitude'],undefined,'original intact');
+  const r=recoll({header:['Numéro du contrat','Opération: Code interne'],rows:[[3001,'OPE-003001']]},[o2]);
+  assert.equal(r.rows[1][r.header.indexOf('Latitude')],48.869,'coordonnées dans le tableau recollé'); assert.equal(r.meta[1].op.id,'p-1'); assert.equal(r.meta[1].bi,1);
+  const head={id:'p-1',rows:[{building:'Bâtiment A'},{building:'Bâtiment B'}]}; patchSessionOperation(head,{'Bâtiment B':f});
+  assert.equal(head.rows[1].latitude,48.869); assert.equal(head.rows[1].postcode,'75002'); assert.equal(head.rows[0].latitude,undefined);
+  const p=patchSessionProject({id:'p-1',manualValues:{'Bâtiment A|cep':50},manualSources:{}},{'Bâtiment B':f},'2026-11-20T10:00:00Z');
+  assert.equal(p.manualValues['Bâtiment B|latitude'],48.869); assert.equal(p.manualValues['Bâtiment B|longitude'],2.331); assert.equal(p.manualValues['Bâtiment A|cep'],50);
+  assert.equal(p.manualSources['Bâtiment B|latitude'].fileName,GEO_FIX_SOURCE); assert.equal(p.manualSources['Bâtiment B|latitude'].method,'manual:totalrecoll-geocode');
+  console.log('Adresses saisies OK'); }

@@ -1,6 +1,6 @@
 // Page autonome « Quartiers NPNRU » : même calcul que l'onglet ANRU de TotalRecoll (recoll.js partagé), présentée pour un client.
 // Tous contrats + session(s) ExtracTerre déposés dans la page, lus localement ; rien n'est envoyé ni enregistré.
-import {recoll,opsFromSession,opsFromBuildingRows,relKey,CONTRACT_COL,OPE_COL,BUILDING_COL,empty,anruIndex,ANRU_COL,ANRU_QP_COL} from '../recoll.js?v=26';
+import {recoll,opsFromSession,opsFromBuildingRows,relKey,CONTRACT_COL,OPE_COL,BUILDING_COL,empty,anruIndex,ANRU_COL,ANRU_QP_COL} from '../recoll.js?v=27';
 
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));

@@ -1,5 +1,6 @@
-import {REL_ORDER,REL_LABEL,relKey,recoll,opsFromSession,opsFromBuildingRows,CONTRACT_COL,OPE_COL,STATUS_COL,BUILDING_COL,KINDS,TECH_LABELS,targetColumn,empty,anruIndex,ANRU_COL,ANRU_QP_COL,confortOf,oddValue,COLUMN_KEY,sortRowIndexes,ZONES,zoneOfDep,depOfRow,confortStats,SYSTEMS,DH_ZT,DH_ZNT,publishTable,researchFromSession,mergeResearch,researchRows,researchStats,NO_REF} from './recoll.js?v=26';
-import {verificationItems,verifiedSearch,verificationProgress,highlightRanges,effectiveDecisions,controlItems,CTRL_LABEL} from './recoll.js?v=26';
+import {REL_ORDER,REL_LABEL,relKey,recoll,opsFromSession,opsFromBuildingRows,CONTRACT_COL,OPE_COL,STATUS_COL,BUILDING_COL,KINDS,TECH_LABELS,targetColumn,empty,anruIndex,ANRU_COL,ANRU_QP_COL,confortOf,oddValue,COLUMN_KEY,sortRowIndexes,ZONES,zoneOfDep,depOfRow,confortStats,SYSTEMS,DH_ZT,DH_ZNT,publishTable,researchFromSession,mergeResearch,researchRows,researchStats,NO_REF} from './recoll.js?v=27';
+import {withGeoFixes,geoFixKey,geoFixFromFeature,patchSessionOperation,patchSessionProject,anruOf} from './recoll.js?v=27';
+import {verificationItems,verifiedSearch,verificationProgress,highlightRanges,effectiveDecisions,controlItems,CTRL_LABEL} from './recoll.js?v=27';
 
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -8,6 +9,9 @@ const PAGE=100;
 const KEY_COLS=[CONTRACT_COL,OPE_COL,"Nom de l'opération",'Nom de la société: Nom de la société','Référentiel',BUILDING_COL,'Total logements','Nombre de logements','Ville','Latitude','Longitude','Cep projet','Bbio projet','DH projet','IC construction','ANRU'];
 const state={filter:'recolle',sf:null,sfName:'',sfSheet:'',et:[],result:null,decisions:{},page:0,sort:{col:null,dir:''},tab:'table',map:null,mapLayer:null,anru:null,anruMap:null,anruLayer:null,mentionsOff:new Set(),zonesGeo:null,zoneMap:null,zone:'',rs:{grid:'',ref:'',owner:'',q:''}};
 try{ state.decisions=JSON.parse(localStorage.getItem('totalrecoll.decisions')||'{}'); }catch{}
+// Adresses saisies pour les lignes non géolocalisées (gardées ici jusqu'à leur écriture dans la session, et après).
+try{ state.geoFixes=JSON.parse(localStorage.getItem('totalrecoll.geofixes')||'{}'); }catch{ state.geoFixes={}; }
+const saveGeoFixes=()=>{ try{ localStorage.setItem('totalrecoll.geofixes',JSON.stringify(state.geoFixes)); }catch{} };
 const saveDecisions=()=>{ try{ localStorage.setItem('totalrecoll.decisions',JSON.stringify(state.decisions)); }catch{} };
 
 /* ---------- Lecture des fichiers ---------- */
@@ -54,14 +58,16 @@ async function loadSf(file){
 async function loadEt(file){
   // Session : bâtiments (recollement) + résultats de l'onglet Recherches ; export « observatoire » : recherches seules.
   if(/\.json$/i.test(file.name)){ const head=await readSessionHead(file), research=researchFromSession(head,file.name);
-    return {name:file.name,kind:head.kind==='observatoire'?'Recherches':'Session JSON',ops:head.kind==='observatoire'?[]:opsFromSession(head,file.name),research}; }
+    const ops=head.kind==='observatoire'?[]:opsFromSession(head,file.name); ops.forEach(o=>{ o.file=file.name; });
+    return {name:file.name,kind:head.kind==='observatoire'?'Recherches':'Session JSON',ops,research,file}; }
   const wb=await readBook(file), ws=wb.Sheets['Données par bâtiment'];
   if(!ws) throw new Error(`« ${file.name} » n’a pas de feuille « Données par bâtiment » (export ExtracTerre attendu).`);
   const aoa=sheetAoa(ws), h=aoa[0];
   // ExtracTerre ≥ 2.34 : feuille « Fiabilité par bâtiment », même grille (ligne à ligne) avec le niveau de chaque valeur.
   const wr=wb.Sheets['Fiabilité par bâtiment'], ra=wr?sheetAoa(wr):null, rh=ra?.[0]||[];
   const relRows=ra?ra.slice(1).map(r=>Object.fromEntries(rh.map((k,i)=>[k,r[i]]).filter(([,v])=>relKey(v)))):[];
-  return {name:file.name,kind:'Export Excel',ops:opsFromBuildingRows(aoa.slice(1).map(r=>Object.fromEntries(h.map((k,i)=>[k,r[i]]))),file.name,relRows)};
+  const ops=opsFromBuildingRows(aoa.slice(1).map(r=>Object.fromEntries(h.map((k,i)=>[k,r[i]]))),file.name,relRows); ops.forEach(o=>{ o.file=file.name; });
+  return {name:file.name,kind:'Export Excel',ops};
 }
 const busy=(on,text='')=>{ $('busy').hidden=!on; $('busyText').textContent=text; };
 const nextFrame=()=>new Promise(r=>requestAnimationFrame(()=>setTimeout(r,0)));
@@ -82,7 +88,7 @@ function run(){
   renderSources();
   state.result=null;
   if(state.sf&&state.et.length){
-    try{ state.result=recoll(state.sf,state.et.flatMap(e=>e.ops),{keepSalesforce:document.querySelector('input[name=default]:checked').value==='sf',decisions:state.decisions,anru:state.anru}); }
+    try{ state.result=recoll(state.sf,state.et.flatMap(e=>e.ops.map(op=>withGeoFixes(op,e.name,state.geoFixes))),{keepSalesforce:document.querySelector('input[name=default]:checked').value==='sf',decisions:state.decisions,anru:state.anru}); }
     catch(e){ toast(e.message,'error'); }
   }
   const ok=!!state.result;
@@ -128,7 +134,7 @@ function renderControl(){
   $('kpis').innerHTML=chip('recolle','Recollées',r.meta.filter(m=>m.kind==='recolle'||m.kind==='vide').length,'et')+chip('check','À contrôler',issues,issues?'check':'')
     +chip('sf','Tous contrats seul',r.meta.filter(m=>m.kind==='sf').length,'sf')+chip('et','ExtracTerre seul',r.meta.filter(m=>m.kind==='et').length)
     +(s.conflits?chip('conflit','En conflit',r.meta.filter(m=>m.kind==='conflit').length,'bad'):'')+chip('all','Toutes les lignes',s.lignes);
-  $('nIssues').textContent=issues; $('nEcarts').textContent=s.ecarts; $('nMap').textContent=geo; $('nAnru').textContent=anruRows().length||''; $('nConfort').textContent=confortRows().length||''; $('nResearch').textContent=researchAll().length||'';
+  $('nIssues').textContent=issues; $('nEcarts').textContent=s.ecarts; $('nMap').textContent=geo; document.querySelectorAll('[data-geo-count]').forEach(b=>{ b.textContent=noGeoItems().filter(x=>!x.fix).length||''; }); $('nAnru').textContent=anruRows().length||''; $('nConfort').textContent=confortRows().length||''; $('nResearch').textContent=researchAll().length||'';
   $('exportLine').innerHTML=`<b>${n(s.lignes)} lignes × ${r.header.length} colonnes</b> prêtes pour la feuille OPERATIONS de l’Observatoire`;
   renderTable(); renderIssues(); renderEcarts(); renderColumns(); if(state.tab==='map') renderMap(); if(state.tab==='anru') renderAnru(); if(state.tab==='confort') renderConfort(); if(state.tab==='research') renderResearch();
 }
@@ -684,3 +690,107 @@ fetch('data/zones-climatiques.json').then(r=>r.ok?r.json():Promise.reject(new Er
 fetch('data/npnru.json').then(r=>r.ok?r.json():Promise.reject(new Error(`HTTP ${r.status}`))).then(d=>{ state.anru=anruIndex(d); if(state.sf&&state.et.length) run(); })
   .catch(e=>toast(`Quartiers ANRU non chargés (${e.message}) : la colonne ANRU ne sera pas remplie.`,'error'));
 renderSteps();
+
+/* ---------- Lignes non géolocalisées : adresse saisie, géolocalisée par l'IGN, écrite dans la session ExtracTerre ---------- */
+const GEOCODE_URL='https://data.geopf.fr/geocodage/search';
+const geo={q:'',npnruOnly:false,results:{},busy:{}};
+function noGeoItems(){
+  const r=state.result; if(!r) return []; const la=r.header.indexOf('Latitude'), lo=r.header.indexOf('Longitude'), qi=r.header.indexOf(ANRU_QP_COL);
+  const h=(row,n)=>{ const j=r.header.indexOf(n); return j<0?'':row[j]??''; };
+  const out=[];
+  r.rows.forEach((row,i)=>{ const m=r.meta[i]; if(!m?.op) return; const b=m.op.buildings[m.bi]||{}, building=b[BUILDING_COL]||'', key=geoFixKey(m.op.file||'',m.op,building), fix=state.geoFixes[key];
+    const lat=Number(row[la]), lon=Number(row[lo]); if(!fix&&Number.isFinite(lat)&&Number.isFinite(lon)&&lat!==0&&String(row[la]??'')!=='') return;
+    out.push({i,key,fix,building,file:m.op.file||'',json:/\.json$/i.test(m.op.file||''),npnru:/Commune avec quartier NPNRU/.test(qi<0?'':row[qi]||''),
+      address:h(row,'Adresse'),cp:h(row,'Code postal'),city:h(row,'Ville')}); });
+  return out.sort((a,b)=>(!!a.fix-!!b.fix)||(b.npnru-a.npnru)||String(rowLabel(a.i).title).localeCompare(String(rowLabel(b.i).title),'fr'));
+}
+const sfOnlyNoGeo=()=>{ const r=state.result; if(!r) return 0; const la=r.header.indexOf('Latitude'); return r.rows.filter((row,i)=>!r.meta[i]?.op&&!(Number(row[la])>0||Number(row[la])<0)).length; };
+function openGeo(){ renderGeo(); $('geoDlg').showModal(); }
+function renderGeo(){
+  const all=noGeoItems(), fold=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
+  const xs=all.filter(x=>(!geo.npnruOnly||x.npnru||x.fix)&&(!geo.q||fold([rowLabel(x.i).title,rowLabel(x.i).sub,x.address,x.cp,x.city].join(' ')).includes(fold(geo.q))));
+  const todo=all.filter(x=>!x.fix).length, done=all.length-todo, pending=Object.values(state.geoFixes).filter(f=>!f.written&&state.et.some(e=>e.file&&e.kind==='Session JSON'&&f.file===e.name)).length;
+  $('geoSub').textContent=`${todo} ligne(s) sans coordonnées${done?`, ${done} adresse(s) saisie(s)`:''}. Les lignes Tous contrats sans session ExtracTerre (${sfOnlyNoGeo()}) ne peuvent pas être enregistrées et ne sont pas listées.`;
+  $('geoSave').disabled=!pending; $('geoSave').textContent=pending?`Enregistrer ${pending} adresse(s) dans la session`:'Rien à enregistrer';
+  const shown=xs.slice(0,200);
+  $('geoBody').innerHTML=shown.length?shown.map(x=>{ const l=rowLabel(x.i), res=geo.results[x.key];
+    const cur=[x.address,[x.cp,x.city].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+    const preview=x.fix&&state.anru?anruOf(state.anru,{lat:x.fix.lat,lon:x.fix.lon}):null;
+    return `<article class="geo-item ${x.fix?'done':''}" data-key="${esc(x.key)}">
+      <div class="geo-id"><b>${esc(l.title)}</b><small>${esc(l.sub)}</small>${x.npnru?'<span class="geo-flag">Commune avec quartier NPNRU</span>':''}${x.json?'':'<span class="geo-flag warn">Export Excel : enregistrement dans ce fichier impossible</span>'}</div>
+      <div class="geo-cur"><small>Adresse connue</small>${esc(cur||'aucune')}</div>
+      ${x.fix?`<div class="geo-fix"><small>Adresse saisie${x.fix.written?' (écrite dans la session)':' (à enregistrer)'}</small><b>${esc(x.fix.label)}</b><span>${esc(`${x.fix.lat}, ${x.fix.lon}`)} · ${esc(x.fix.precision)}${preview?` · ANRU : ${esc(preview.anru||'à vérifier')}${preview.quartier?' ('+esc(preview.quartier)+')':''}`:''}</span><button type="button" class="btn quiet small" data-geo-undo>Retirer</button></div>`
+      :`<form class="geo-form" data-geo-form><input type="search" name="q" value="${esc([x.address,x.cp,x.city].filter(Boolean).join(' '))}" placeholder="Numéro, voie, code postal, commune" aria-label="Adresse de ${esc(l.title)}, ${esc(x.building)}"><button class="btn small" type="submit">Chercher</button></form>
+      ${geo.busy[x.key]?'<p class="muted small">Recherche IGN…</p>':res?.error?`<p class="geo-err">${esc(res.error)}</p>`:res?`<ul class="geo-res">${res.list.map((f,k)=>{ const fx=geoFixFromFeature(f); return `<li><button type="button" ${fx?`data-geo-pick="${k}"`:'disabled'}>${esc(f.properties?.label||'')}<small>${fx?esc(fx.precision.replace(', saisie TotalRecoll','')):'commune seule : trop imprécis'}${f.properties?.score?` · score ${Math.round(f.properties.score*100)} %`:''}</small></button></li>`; }).join('')||'<li class="muted">Aucune adresse trouvée.</li>'}</ul>`:''}`}
+    </article>`; }).join('')+(xs.length>shown.length?`<p class="muted">${xs.length-shown.length} autre(s) ligne(s) : affinez la recherche.</p>`:''):'<p class="muted">Aucune ligne à géolocaliser.</p>';
+}
+async function geoSearch(key,q){
+  geo.busy[key]=true; renderGeo();
+  try{ const u=new URL(GEOCODE_URL); u.searchParams.set('q',q); u.searchParams.set('limit','5'); u.searchParams.set('index','address');
+    const r=await fetch(u); if(!r.ok) throw new Error(`Géoplateforme IGN : HTTP ${r.status}`); geo.results[key]={list:(await r.json()).features||[]}; }
+  catch(e){ geo.results[key]={error:`Recherche impossible : ${e.message}`}; }
+  delete geo.busy[key]; renderGeo();
+}
+function geoPick(key,k){
+  const f=geo.results[key]?.list?.[k], fx=geoFixFromFeature(f); if(!fx) return;
+  const [file]=key.split('|'); state.geoFixes[key]={...fx,file,written:false,at:new Date().toISOString()}; delete geo.results[key]; saveGeoFixes(); run(); renderGeo();
+}
+// Lignes d'un fichier (sans les charger en entier) ; une ligne peut être très longue (opération avec ses documents).
+async function* fileLines(file){
+  const reader=file.stream().pipeThrough(new TextDecoderStream()).getReader(); let carry='';
+  while(true){ const {value,done}=await reader.read(); if(done) break; let i=0, j; const s=carry+value; carry='';
+    while((j=s.indexOf('\n',i))>=0){ yield s.slice(i,j); i=j+1; } carry=s.slice(i); }
+  if(carry) yield carry;
+}
+// Réécrit la session : tête (operations[].rows) et projets du workspace concernés (une opération par ligne, « lines-v1 »).
+// Les autres lignes sont recopiées telles quelles.
+async function writeSessionFixes(entry,byOp,put){
+  const MARK=/"projects":\s*\[\s*$/, head=[]; let it=fileLines(entry.file), marker=null;
+  // Lecture pas à pas (pas de « for await … break » : il fermerait le flux avant la suite du fichier).
+  for(;;){ const {value:l,done}=await it.next(); if(done) break; if(MARK.test(l)){ marker=l; break; } if(/"projects":\s*\[\{\s*$/.test(l)) throw new Error('Session exportée par une version ancienne d’ExtracTerre : réexportez-la avant d’enregistrer les adresses.'); head.push(l); }
+  const opFix=o=>byOp.get(o.id)||null;
+  if(!marker){ const o=JSON.parse(head.join('\n').replace(/^﻿?[^{]*/,'')); for(const op of o.operations||[]){ const f=opFix(op); if(f) patchSessionOperation(op,f); } await put(JSON.stringify(o,null,1)+'\n'); return; }
+  const o=JSON.parse(head.join('\n').replace(/^﻿?[^{]*/,'')+marker+']}}');
+  if(o.workspaceFormat!=='lines-v1') throw new Error('Session exportée par une version ancienne d’ExtracTerre : réexportez-la avant d’enregistrer les adresses.');
+  for(const op of o.operations||[]){ const f=opFix(op); if(f) patchSessionOperation(op,f); }
+  delete o.workspace; delete o.workspaceFormat; const s=JSON.stringify(o,null,1);
+  await put(s.slice(0,s.lastIndexOf('}')).replace(/\s+$/,'')+',\n "workspaceFormat": "lines-v1",\n "workspace": {"projects": [\n');
+  const ids=[...byOp.keys()].filter(Boolean); let done=new Set(), ended=false;
+  for await(const l of it){
+    if(!ended){ const lead=l.startsWith(',')?',':'', body=l.slice(lead.length).trim();
+      if(body.startsWith(']')) ended=true;
+      else if(body){ const start=body.slice(0,400), id=ids.find(x=>!done.has(x)&&new RegExp(`"id"\\s*:\\s*${JSON.stringify(x).replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}`).test(start));
+        if(id){ const p=JSON.parse(body); if(p.id===id){ patchSessionProject(p,byOp.get(id)); done.add(id); await put(lead+JSON.stringify(p)+'\n'); continue; } } } }
+    await put(l+'\n'); }
+  return done.size;
+}
+async function geoSave(){
+  const byFile=new Map();
+  for(const [key,f] of Object.entries(state.geoFixes)){ if(f.written) continue; const [file,opId,...b]=key.split('|'); const e=state.et.find(x=>x.name===file&&x.kind==='Session JSON'&&x.file); if(!e) continue;
+    const m=byFile.get(e)||new Map(); const ob=m.get(opId)||{}; ob[b.join('|')]=f; m.set(opId,ob); byFile.set(e,m); }
+  for(const [e,byOp] of byFile){
+    let handle=null;
+    if(window.showSaveFilePicker){ try{ handle=await showSaveFilePicker({suggestedName:e.name,types:[{description:'Session ExtracTerre',accept:{'application/json':['.json']}}]}); }catch(err){ if(err?.name==='AbortError') return; } }
+    busy(true,`Écriture de « ${e.name} »… (une grosse session peut prendre une minute)`); await nextFrame();
+    try{ const parts=[]; const w=handle?await handle.createWritable():null; const put=async s=>{ if(w) await w.write(s); else parts.push(s); };
+      try{ await writeSessionFixes(e,byOp,put); }catch(err){ try{ await w?.abort(); }catch{} throw err; }
+      if(w) await w.close(); else { const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(parts,{type:'application/json'})); a.download=e.name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); }
+      // La session enregistrée devient la source (adresses incluses) ; marquées « écrites ».
+      if(handle){ const nf=await handle.getFile(); if(nf.name!==e.name){ for(const k of Object.keys(state.geoFixes)) if(k.startsWith(e.name+'|')){ state.geoFixes[nf.name+k.slice(e.name.length)]={...state.geoFixes[k],file:nf.name}; delete state.geoFixes[k]; } for(const o of e.ops) o.file=nf.name; e.name=nf.name; } e.file=nf; }
+      for(const [k,f] of Object.entries(state.geoFixes)) if(k.startsWith(e.name+'|')) f.written=true;
+      saveGeoFixes(); const n=[...byOp.values()].reduce((s,x)=>s+Object.keys(x).length,0);
+      toast(`${n} adresse(s) enregistrée(s) dans « ${e.name} »${handle?'':' (fichier téléchargé)'} : ExtracTerre les reprendra à l’import de la session.`,'success'); }
+    catch(err){ toast(`Enregistrement impossible : ${err.message}`,'error'); }
+    finally{ busy(false); }
+  }
+  run(); renderGeo();
+}
+document.querySelectorAll('[data-geo-open]').forEach(b=>b.addEventListener('click',openGeo));
+$('geoClose').onclick=()=>$('geoDlg').close();
+$('geoQ').oninput=e=>{ geo.q=e.target.value; renderGeo(); };
+$('geoNpnru').onchange=e=>{ geo.npnruOnly=e.target.checked; renderGeo(); };
+$('geoSave').onclick=()=>geoSave();
+$('geoBody').addEventListener('submit',e=>{ const f=e.target.closest('[data-geo-form]'); if(!f) return; e.preventDefault(); const key=f.closest('[data-key]').dataset.key, q=f.q.value.trim(); if(q) geoSearch(key,q); });
+$('geoBody').addEventListener('click',e=>{ const it=e.target.closest('[data-key]'); if(!it) return; const key=it.dataset.key;
+  const p=e.target.closest('[data-geo-pick]'); if(p){ geoPick(key,+p.dataset.geoPick); return; }
+  if(e.target.closest('[data-geo-undo]')){ delete state.geoFixes[key]; saveGeoFixes(); run(); renderGeo(); } });

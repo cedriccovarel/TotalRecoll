@@ -161,7 +161,7 @@ export function recoll(sf,etOps,{keepSalesforce=false,decisions={},anru=null}={}
       if(mismatch) techCols.forEach(h=>{ base[col[h]]=undefined; });
       const rel={}; const et=overlay(base,b,m.op,rows.length,m.op.rel?.[i]||{},rel,m.op.docAlt?.[i]||{});
       let st=m.status; if(mismatch){ st+=` — à vérifier : ${k} lignes Salesforce pour ${n} bâtiments`; stats.aVerifier++; }
-      base[col[STATUS_COL]]=st; rows.push(base); meta.push({kind:'recolle',check:mismatch||m.replaced,et,rel,group:g.key,source:m.op.source});
+      base[col[STATUS_COL]]=st; rows.push(base); meta.push({kind:'recolle',check:mismatch||m.replaced,et,rel,group:g.key,source:m.op.source,op:m.op,bi:i});
     });
     stats.etBatiments+=n;
   }
@@ -169,7 +169,7 @@ export function recoll(sf,etOps,{keepSalesforce=false,decisions={},anru=null}={}
     kind==='conflit'?stats.conflits++:stats.etSeul++;
     (op.buildings.length?op.buildings:[{}]).forEach((b,bi)=>{
       const r=new Array(width); r[ci]=op.contract; r[oi]=op.code; const rel={}; const et=overlay(r,b,op,rows.length,op.rel?.[bi]||{},rel,op.docAlt?.[bi]||{});
-      r[col[STATUS_COL]]=`${status} — ${op.source}`; rows.push(r); meta.push({kind,check:true,et,rel,group:'',source:op.source});
+      r[col[STATUS_COL]]=`${status} — ${op.source}`; rows.push(r); meta.push({kind,check:true,et,rel,group:'',source:op.source,op,bi});
     });
     stats.etBatiments+=op.buildings.length;
   }
@@ -191,11 +191,11 @@ function docAltOf(o,building,nRows){ const out={};
 const KEY2LABEL=Object.fromEntries(ET_FIELDS);
 export function opsFromSession(json,source){
   if(json?.format!=='extracterre-session'||!Array.isArray(json.operations)) throw new Error('Ce JSON n’est pas une session ExtracTerre.');
-  return json.operations.map(o=>etOperation(
+  return json.operations.map(o=>({id:o.id||'',...etOperation(
     (o.rows||[]).map(r=>({...Object.fromEntries(Object.entries(r).map(([k,v])=>[KEY2LABEL[k]||k,v])),'Contrat: Numéro du contrat':r.contract_number,'Code interne':r.internal_code})),
     [o.identity?.contract,o.identity?.code,o.title],`${source} › ${o.title||o.identity?.name||'sans titre'}`,
     (o.rows||[]).map(r=>Object.fromEntries(Object.entries(o.reliability?.[r.building]||{}).map(([k,v])=>[KEY2LABEL[k]||k,v]))),
-    (o.rows||[]).map(r=>docAltOf(o,r.building,(o.rows||[]).length))));
+    (o.rows||[]).map(r=>docAltOf(o,r.building,(o.rows||[]).length)))}));
 }
 // Export Excel ExtracTerre (feuille « Données par bâtiment », lignes déjà en libellés) → opérations groupées par contrat/OPE.
 export function opsFromBuildingRows(rows,source,relRows=[]){
@@ -495,4 +495,37 @@ export function highlightRanges(text,crit){
   out.sort((a,b)=>a.s-b.s||(a.kind==='k'?-1:1)); const merged=[];
   for(const r of out){ const last=merged[merged.length-1]; if(last&&r.s<last.e){ if(r.kind==='k'&&last.kind==='c'){ last.kind='k'; } last.e=Math.max(last.e,r.e); } else merged.push({...r}); }
   return merged;
+}
+
+// ---------- Adresses saisies dans TotalRecoll (lignes non géolocalisées) ----------
+// Une correction = {address, postcode, city, lat, lon, insee, precision, label} pour un bâtiment d'une opération d'un fichier
+// ExtracTerre. Clé : « fichier|opération|bâtiment ». Écrite dans la session comme saisie manuelle (ExtracTerre ne remplace jamais
+// une coordonnée saisie), et dans la tête de la session (lue par TotalRecoll).
+export const GEO_FIX_FIELDS={address:'Adresse',postcode:'Code postal',city:'Ville',lat:'Latitude',lon:'Longitude',insee:'Code INSEE',precision:'Géolocalisation'};
+const GEO_FIX_KEYS={address:'address',postcode:'postcode',city:'city',lat:'latitude',lon:'longitude',insee:'insee_code',precision:'geocode_precision'};
+export const GEO_FIX_SOURCE='TotalRecoll — adresse saisie à la main';
+export const geoFixKey=(file,op,building)=>`${file}|${op?.id||op?.contract||op?.code||''}|${building||''}`;
+export function geoFixValues(fix){ return Object.fromEntries(Object.entries(GEO_FIX_KEYS).filter(([k])=>fix?.[k]!==undefined&&fix[k]!==null&&fix[k]!=='').map(([k,f])=>[f,fix[k]])); }
+// Opération ExtracTerre avec les corrections de ce fichier appliquées (copie ; l'original reste intact).
+export function withGeoFixes(op,file,fixes){
+  let hit=false; const buildings=op.buildings.map(b=>{ const f=fixes[geoFixKey(file,op,b[BUILDING_COL])]; if(!f) return b; hit=true;
+    return {...b,...Object.fromEntries(Object.entries(GEO_FIX_FIELDS).filter(([k])=>f[k]!==undefined&&f[k]!==null&&f[k]!=='').map(([k,l])=>[l,f[k]]))}; });
+  return hit?{...op,buildings}:op;
+}
+// Réponse IGN (feature GeoJSON) → correction ; null pour un résultat trop vague (commune seule).
+const GEO_TYPES={housenumber:'Adresse exacte (numéro)',street:'Voie (sans numéro)',locality:'Lieu-dit'};
+export function geoFixFromFeature(f){
+  const p=f?.properties||{}, [lon,lat]=f?.geometry?.coordinates||[]; if(!Number.isFinite(lat)||!Number.isFinite(lon)||!GEO_TYPES[p.type]) return null;
+  return {address:p.name||'',postcode:p.postcode||'',city:p.city||'',lat:Math.round(lat*1e6)/1e6,lon:Math.round(lon*1e6)/1e6,insee:p.citycode||'',precision:`${GEO_TYPES[p.type]}, saisie TotalRecoll`,label:p.label||''};
+}
+// Session : tête (operations[].rows) et projet du workspace (saisies manuelles des bâtiments). byBuilding : {bâtiment: correction}.
+export function patchSessionOperation(o,byBuilding){
+  for(const r of o?.rows||[]){ const f=byBuilding[r.building]; if(f) Object.assign(r,geoFixValues(f)); }
+  return o;
+}
+export function patchSessionProject(p,byBuilding,at=new Date().toISOString()){
+  p.manualValues={...(p.manualValues||{})}; p.manualSources={...(p.manualSources||{})};
+  for(const [b,f] of Object.entries(byBuilding)) for(const [field,v] of Object.entries(geoFixValues(f))){ const k=`${b}|${field}`;
+    p.manualValues[k]=v; p.manualSources[k]={docId:'',fileName:GEO_FIX_SOURCE,page:'',excerpt:f.label||'',method:'manual:totalrecoll-geocode',provenanceNote:`Adresse saisie dans TotalRecoll le ${at.slice(0,10)}, géolocalisée par l’IGN`}; }
+  return p;
 }
