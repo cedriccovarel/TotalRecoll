@@ -312,3 +312,22 @@ console.log('Carte confort d’été (zones climatiques) OK');
   it=verificationItems([o],{...grid,rulesVersion:3},{[k('hall_sas')]:{d:'so'}}); assert.equal(it[0].decision,'so','ancienne session : décision gardée');
   console.log('Décisions et règles v4 OK');
 }
+// ExtracTerre ≥ 3.2.0 : écart Salesforce ↔ documents. ExtracTerre a retenu Salesforce (Cep 55) alors que son document dit 60 :
+// écart proposé, Salesforce par défaut (priorité inchangée), bascule vers les documents. Choix « documents » fait dans
+// ExtracTerre : ExtracTerre retenu par défaut face à Tous contrats.
+{ const sfh={header:['Numéro du contrat','Opération: Code interne','Cep projet','Bbio'],rows:[[2001,'OPE-002001',55,null],[2002,'OPE-002002',55,null]]};
+  const ses={format:'extracterre-session',operations:[
+    {identity:{contract:'00002001'},rows:[{building:'Bâtiment unique',cep:55,bbio:48}],finals:[{building:'Bâtiment unique',field:'cep',value:55,documentValue:60,documentFile:'Etude fictive.pdf',documentPage:3},{building:'Bâtiment unique',field:'bbio',value:48}]},
+    {identity:{contract:'00002002'},rows:[{building:'Bâtiment unique',cep:60}],finals:[{building:'Bâtiment unique',field:'cep',value:60,sfChoice:'doc',sfValue:55}]}]};
+  const o=opsFromSession(ses,'s.json'); const cep=r=>r.rows[r.rows.findIndex(x=>x[0]==='00002001')][r.header.indexOf('Cep projet')];
+  let r=recoll(sfh,o); const e=r.ecarts.find(x=>x.contrat==='00002001');
+  assert.ok(e&&e.docs,'écart documents proposé'); assert.equal(e.salesforce,55); assert.equal(e.extracterre,60); assert.equal(e.retenu,'Salesforce','Salesforce par défaut');
+  assert.equal(cep(r),55); assert.equal(r.ecarts.filter(x=>x.colonne==='Bbio').length,0,'pas d’écart sans valeur des documents');
+  r=recoll(sfh,o,{decisions:{[e.key]:'et'}}); assert.equal(cep(r),60,'bascule vers les documents');
+  r=recoll(sfh,o,{keepSalesforce:true}); assert.equal(cep(r),55,'défaut Tous contrats : inchangé');
+  const e2=r.ecarts.find(x=>x.contrat==='00002002'); assert.equal(e2.retenu,'ExtracTerre','choix documents d’ExtracTerre respecté même avec le défaut Tous contrats');
+  assert.equal(r.rows[r.rows.findIndex(x=>x[0]==='00002002')][r.header.indexOf('Cep projet')],60);
+  // Sessions plus anciennes (sans documentValue) : rien ne change.
+  const old=recoll(sfh,opsFromSession({format:'extracterre-session',operations:[{identity:{contract:'00002001'},rows:[{building:'Bâtiment unique',cep:55}]}]},'old.json'));
+  assert.equal(old.ecarts.length,0);
+  console.log('Écarts Salesforce ↔ documents OK'); }

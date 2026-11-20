@@ -55,12 +55,15 @@ function same(a,b){
 export const REL_ORDER={certifiee:4,sure:3,probable:2,averifier:1};
 export const REL_LABEL={certifiee:'Certifiée',sure:'Sûre',probable:'Probable',averifier:'À vérifier'};
 export function relKey(v){ const s=String(v??'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z]/g,''); return REL_ORDER[s]?s:''; }
-export function etOperation(buildings,ids=[],source='',rel=[]){
+// docAlt[i] : { libellé: {value,file,page,chosen} } — valeurs lues dans les documents par ExtracTerre quand il a retenu Salesforce
+// (chosen=false), ou quand l'utilisateur y a choisi les documents (chosen=true ; la valeur du bâtiment est déjà celle des documents).
+export function etOperation(buildings,ids=[],source='',rel=[],docAlt=[]){
   const all=[...ids,...buildings.flatMap(b=>[b['Contrat: Numéro du contrat'],b['Code interne'],b['Opération'],b['Projet'],b['Nom opération']])];
   const contract=all.map(contractOf).find(Boolean)||'';
   const code=all.map(normOpe).find(Boolean)||'';
   return {contract,code,source,buildings:buildings.map(b=>withDh(Object.fromEntries(Object.entries(b).filter(([k,v])=>TECH_SET.has(k)&&!empty(v))))),
-    rel:buildings.map((b,i)=>Object.fromEntries(Object.entries(rel[i]||{}).map(([k,v])=>[k,relKey(v)]).filter(([,v])=>v)))};
+    rel:buildings.map((b,i)=>Object.fromEntries(Object.entries(rel[i]||{}).map(([k,v])=>[k,relKey(v)]).filter(([,v])=>v))),
+    docAlt:buildings.map((b,i)=>docAlt[i]||{})};
 }
 // ExtracTerre ≥ 2.11 : DH ZT / DH ZNT. « DH projet » reçoit le plus défavorable des deux ; un DH sans type de zone
 // (exports plus anciens) va en DH ZNT, sauf bâtiment uniquement traversant (DH ZT) — même règle qu'ExtracTerre.
@@ -117,17 +120,29 @@ export function recoll(sf,etOps,{keepSalesforce=false,decisions={},anru=null}={}
   const stats={recolles:0,salesforceSeul:0,etSeul:0,conflits:0,lignes:0,ecarts:0,aVerifier:0,etOperations:unique.size,etBatiments:0,viaContrat:0,viaOpe:0,viaDeux:0};
   const width=header.length;
   // Écrit les valeurs d'un bâtiment ExtracTerre dans la ligne ; renvoie les colonnes remplies par ExtracTerre.
-  const overlay=(row,b,op,rowIndex,rel={},relOut=null)=>{
+  const overlay=(row,b,op,rowIndex,rel={},relOut=null,alt={})=>{
     const filled=[];
     for(const [label,v] of Object.entries(b)){
       const h=targetColumn(label), j=col[h]; if(j==null) continue;
       if(!empty(row[j])&&!same(row[j],v)&&h!==BUILDING_COL){
         const e={contrat:normContract(row[ci])||op.contract,ope:normOpe(row[oi])||op.code,batiment:b[BUILDING_COL]||'',colonne:h,salesforce:row[j],extracterre:v,source:op.source,rowIndex};
-        e.key=ecartKey(e); const choice=decisions[e.key]||(keepSalesforce?'sf':'et');
+        // Valeur des documents choisie dans ExtracTerre à la place de Salesforce : ExtracTerre retenu par défaut.
+        e.key=ecartKey(e); const choice=decisions[e.key]||(alt[label]?.chosen?'et':keepSalesforce?'sf':'et'); if(alt[label]?.chosen){ e.choixExtracTerre=true; e.source=`${e.source||''} — valeur des documents choisie dans ExtracTerre (Salesforce : ${alt[label].sf??''})`; }
         e.retenu=choice==='sf'?'Salesforce':'ExtracTerre'; e.decided=!!decisions[e.key]; ecarts.push(e);
         if(choice==='sf') continue;
       }
       row[j]=v; filled.push(j); if(relOut) relOut[j]=rel[label]||(label==='DH'?rel[DH_ZNT]||rel[DH_ZT]:'')||'';
+    }
+    // ExtracTerre a retenu Salesforce alors que ses documents donnent une autre valeur : écart « Salesforce ↔ documents »,
+    // Salesforce retenu par défaut (priorité inchangée), bascule possible vers la valeur des documents.
+    for(const [label,a] of Object.entries(alt)){
+      if(a.chosen) continue; const h=targetColumn(label), j=col[h]; if(j==null||h===BUILDING_COL) continue;
+      const cur=row[j]; if(empty(cur)||empty(a.value)||same(cur,a.value)||ecarts.some(x=>x.rowIndex===rowIndex&&x.colonne===h)) continue;
+      const e={contrat:normContract(row[ci])||op.contract,ope:normOpe(row[oi])||op.code,batiment:b[BUILDING_COL]||'',colonne:h,salesforce:cur,extracterre:a.value,docs:true,
+        source:`Documents lus par ExtracTerre : ${a.file||'document'}${a.page?' p. '+a.page:''} (ExtracTerre avait retenu Salesforce)`,rowIndex};
+      e.key=ecartKey(e)+'|docs'; const choice=decisions[e.key]||'sf';
+      e.retenu=choice==='sf'?'Salesforce':'ExtracTerre'; e.decided=!!decisions[e.key]; ecarts.push(e);
+      if(choice==='et'){ row[j]=a.value; if(!filled.includes(j)) filled.push(j); if(relOut) relOut[j]=rel[label]||''; }
     }
     return filled;
   };
@@ -144,7 +159,7 @@ export function recoll(sf,etOps,{keepSalesforce=false,decisions={},anru=null}={}
       const base=sf.rows[g.rows[k===n?i:0]].slice(0,sfWidth); base.length=width;
       const mismatch=k>1&&k!==n;
       if(mismatch) techCols.forEach(h=>{ base[col[h]]=undefined; });
-      const rel={}; const et=overlay(base,b,m.op,rows.length,m.op.rel?.[i]||{},rel);
+      const rel={}; const et=overlay(base,b,m.op,rows.length,m.op.rel?.[i]||{},rel,m.op.docAlt?.[i]||{});
       let st=m.status; if(mismatch){ st+=` — à vérifier : ${k} lignes Salesforce pour ${n} bâtiments`; stats.aVerifier++; }
       base[col[STATUS_COL]]=st; rows.push(base); meta.push({kind:'recolle',check:mismatch||m.replaced,et,rel,group:g.key,source:m.op.source});
     });
@@ -153,7 +168,7 @@ export function recoll(sf,etOps,{keepSalesforce=false,decisions={},anru=null}={}
   for(const {op,kind,status} of orphans){
     kind==='conflit'?stats.conflits++:stats.etSeul++;
     (op.buildings.length?op.buildings:[{}]).forEach((b,bi)=>{
-      const r=new Array(width); r[ci]=op.contract; r[oi]=op.code; const rel={}; const et=overlay(r,b,op,rows.length,op.rel?.[bi]||{},rel);
+      const r=new Array(width); r[ci]=op.contract; r[oi]=op.code; const rel={}; const et=overlay(r,b,op,rows.length,op.rel?.[bi]||{},rel,op.docAlt?.[bi]||{});
       r[col[STATUS_COL]]=`${status} — ${op.source}`; rows.push(r); meta.push({kind,check:true,et,rel,group:'',source:op.source});
     });
     stats.etBatiments+=op.buildings.length;
@@ -165,6 +180,13 @@ export function recoll(sf,etOps,{keepSalesforce=false,decisions={},anru=null}={}
   return {header,rows,meta,ecarts,stats,sfWidth,extra};
 }
 
+// ExtracTerre ≥ 3.2.0 : valeurs retenues portant un écart Salesforce ↔ documents (documentValue quand Salesforce est retenu,
+// sfChoice 'doc' quand l'utilisateur a choisi les documents).
+function docAltOf(o,building,nRows){ const out={};
+  for(const f of o.finals||[]){ if(f.building!==building&&!(f.building==='Bâtiment unique'&&nRows===1)) continue; const label=KEY2LABEL[f.field]||f.field;
+    if(f.sfChoice==='doc') out[label]={value:f.value,chosen:true,sf:f.sfValue};
+    else if(f.documentValue!==undefined&&f.documentValue!==null&&f.documentValue!=='') out[label]={value:f.documentValue,file:f.documentFile||'',page:f.documentPage||'',chosen:false}; }
+  return out; }
 // Session ExtracTerre (.json) → opérations ; les clés internes sont traduites en libellés.
 const KEY2LABEL=Object.fromEntries(ET_FIELDS);
 export function opsFromSession(json,source){
@@ -172,7 +194,8 @@ export function opsFromSession(json,source){
   return json.operations.map(o=>etOperation(
     (o.rows||[]).map(r=>({...Object.fromEntries(Object.entries(r).map(([k,v])=>[KEY2LABEL[k]||k,v])),'Contrat: Numéro du contrat':r.contract_number,'Code interne':r.internal_code})),
     [o.identity?.contract,o.identity?.code,o.title],`${source} › ${o.title||o.identity?.name||'sans titre'}`,
-    (o.rows||[]).map(r=>Object.fromEntries(Object.entries(o.reliability?.[r.building]||{}).map(([k,v])=>[KEY2LABEL[k]||k,v])))));
+    (o.rows||[]).map(r=>Object.fromEntries(Object.entries(o.reliability?.[r.building]||{}).map(([k,v])=>[KEY2LABEL[k]||k,v]))),
+    (o.rows||[]).map(r=>docAltOf(o,r.building,(o.rows||[]).length))));
 }
 // Export Excel ExtracTerre (feuille « Données par bâtiment », lignes déjà en libellés) → opérations groupées par contrat/OPE.
 export function opsFromBuildingRows(rows,source,relRows=[]){
