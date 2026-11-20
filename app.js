@@ -724,10 +724,18 @@ function renderGeo(){
       ${geo.busy[x.key]?'<p class="muted small">Recherche IGN…</p>':res?.error?`<p class="geo-err">${esc(res.error)}</p>`:res?`<ul class="geo-res">${res.list.map((f,k)=>{ const fx=geoFixFromFeature(f); return `<li><button type="button" ${fx?`data-geo-pick="${k}"`:'disabled'}>${esc(f.properties?.label||'')}<small>${fx?esc(fx.precision.replace(', saisie TotalRecoll','')):'commune seule : trop imprécis'}${f.properties?.score?` · score ${Math.round(f.properties.score*100)} %`:''}</small></button></li>`; }).join('')||'<li class="muted">Aucune adresse trouvée.</li>'}</ul>`:''}`}
     </article>`; }).join('')+(xs.length>shown.length?`<p class="muted">${xs.length-shown.length} autre(s) ligne(s) : affinez la recherche.</p>`:''):'<p class="muted">Aucune ligne à géolocaliser.</p>';
 }
+// L'IGN refuse une requête de moins de 3 ou de plus de 200 caractères, ou qui ne commence pas par une lettre ou un chiffre.
+function geoQuery(q){
+  let s=String(q||'').replace(/\s+/g,' ').replace(/^[^\p{L}\p{N}]+/u,'').trim();
+  if(s.length>200){ s=s.slice(0,200); const sp=s.lastIndexOf(' '); if(sp>120) s=s.slice(0,sp); s=s.replace(/[\s,;–-]+$/,''); }
+  return s;
+}
 async function geoSearch(key,q){
   geo.busy[key]=true; renderGeo();
-  try{ const u=new URL(GEOCODE_URL); u.searchParams.set('q',q); u.searchParams.set('limit','5'); u.searchParams.set('index','address');
-    const r=await fetch(u); if(!r.ok) throw new Error(`Géoplateforme IGN : HTTP ${r.status}`); geo.results[key]={list:(await r.json()).features||[]}; }
+  try{ q=geoQuery(q); if(q.length<3) throw new Error('saisissez au moins 3 caractères (lettres ou chiffres)');
+    const u=new URL(GEOCODE_URL); u.searchParams.set('q',q); u.searchParams.set('limit','5'); u.searchParams.set('index','address');
+    const r=await fetch(u); if(!r.ok){ let d=''; try{ const j=await r.json(); d=[].concat(j.detail||j.message||[]).join(' ; '); }catch{} throw new Error(`Géoplateforme IGN : HTTP ${r.status}${d?` (${d})`:''}`); }
+    geo.results[key]={list:(await r.json()).features||[]}; }
   catch(e){ geo.results[key]={error:`Recherche impossible : ${e.message}`}; }
   delete geo.busy[key]; renderGeo();
 }
