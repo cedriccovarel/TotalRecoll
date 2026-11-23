@@ -412,12 +412,27 @@ $('vfImport').addEventListener('change',async e=>{ const f=e.target.files?.[0]; 
   e.target.value=''; });
 
 /* ---------- Confort d'été : valeurs normalisées par bâtiment ---------- */
-const CONFORT_HEAD=['Contrat','OPE',"Nom de l'opération",'Bâtiment','DH zones traversantes','DH zones non traversantes','Système constructif','Brasseur d’air','Bâtiment climatisé','À vérifier'];
+const CONFORT_HEAD=['Contrat','OPE',"Nom de l'opération",'Zone climatique','Bâtiment','DH zones traversantes','DH zones non traversantes','Système constructif','Brasseur d’air','Bâtiment climatisé','À vérifier'];
 function confortRows(){
   const r=state.result; if(!r) return [];
+  const zones=opZones();
   return r.rows.map((row,i)=>{ const get=h=>{ const j=r.header.indexOf(h); return j<0?undefined:row[j]; }; const c=confortOf(get);
-    return {i,cells:[get(CONTRACT_COL),get(OPE_COL),get("Nom de l'opération"),get(BUILDING_COL),c.dhZt,c.dhZnt,c.system,c.fan,c.clim,c.note]}; })
-    .filter(x=>x.cells.slice(4).some(v=>!empty(v)));
+    return {i,cells:[get(CONTRACT_COL),get(OPE_COL),get("Nom de l'opération"),zones.byRow[i]||'',get(BUILDING_COL),c.dhZt,c.dhZnt,c.system,c.fan,c.clim,c.note]}; })
+    .filter(x=>x.cells.slice(5).some(v=>!empty(v)));
+}
+// Zone climatique de chaque ligne (département : code postal, INSEE, nom d'opération, sinon géolocalisation), puis étendue à
+// toute l'opération : les bâtiments d'une même opération ont la même zone.
+function rowDep(row,get){
+  const r=state.result, lat=r.header.indexOf('Latitude'), lon=r.header.indexOf('Longitude');
+  let dep=depOfRow(get), how=dep?'':'non trouvé';
+  if(!dep&&state.zonesGeo&&lat>=0){ const la=Number(row[lat]), lo=Number(row[lon]); if(la&&lo){ const d=state.zonesGeo.departements.find(d=>inRings(la,lo,d.rings)); if(d){ dep=d.code; how='géolocalisation'; } } }
+  return {dep,how};
+}
+function opZones(){
+  const r=state.result; if(!r) return {byRow:[]};
+  const opOf=i=>r.meta[i]?.group||r.rows[i][r.header.indexOf(CONTRACT_COL)]||'ligne'+i, byOp=new Map(), own=[];
+  r.rows.forEach((row,i)=>{ const get=h=>{ const j=r.header.indexOf(h); return j<0?undefined:row[j]; }; const z=zoneOfDep(rowDep(row,get).dep); own[i]=z; if(z&&!byOp.has(opOf(i))) byOp.set(opOf(i),z); });
+  return {byRow:r.rows.map((_,i)=>own[i]||byOp.get(opOf(i))||'')};
 }
 /* ---------- Confort d'été : carte des zones climatiques ---------- */
 const ZONE_COLORS={H1a:'#1F5FA8',H1b:'#3B88D0',H1c:'#78B8E8',H2a:'#3FA586',H2b:'#B9A33F',H2c:'#E0912F',H2d:'#E5672A',H3:'#C1440E'};
@@ -427,8 +442,7 @@ function zoneItems(){
   const r=state.result; if(!r) return [];
   const col=h=>r.header.indexOf(h), lat=col('Latitude'), lon=col('Longitude');
   return r.rows.map((row,i)=>{ const get=h=>{ const j=col(h); return j<0?undefined:row[j]; }, c=confortOf(get);
-    let dep=depOfRow(get), how=dep?'':'non trouvé';
-    if(!dep&&state.zonesGeo&&lat>=0){ const la=Number(row[lat]), lo=Number(row[lon]); if(la&&lo){ const d=state.zonesGeo.departements.find(d=>inRings(la,lo,d.rings)); if(d){ dep=d.code; how='géolocalisation'; } } }
+    const {dep,how}=rowDep(row,get);
     const num=v=>empty(v)?null:Number(v);
     return {i,op:r.meta[i].group||get(CONTRACT_COL)||'ligne'+i,dep,zone:zoneOfDep(dep),how,dhZt:num(c.dhZt),dhZnt:num(c.dhZnt),system:c.system,fan:c.fan,clim:c.clim}; })
     .filter(x=>x.dhZt!=null||x.dhZnt!=null||x.system||x.fan||x.clim);
@@ -468,13 +482,21 @@ function renderZones(){
 function renderConfort(){
   renderZones();
   const r=state.result, rows=confortRows(), n=k=>rows.filter(x=>!empty(x.cells[k])).length;
-  $('confortInfo').textContent=rows.length?`${rows.length} bâtiment(s) avec au moins une valeur sur ${r.rows.length} ligne(s) : DH ZT ${n(4)}, DH ZNT ${n(5)}, système constructif ${n(6)}, brasseur d’air ${n(7)}, climatisation ${n(8)}, à vérifier ${n(9)}.`:'Aucune de ces valeurs dans les données recollées.';
-  const dhCol={4:DH_ZT,5:DH_ZNT};
+  $('confortInfo').textContent=rows.length?`${rows.length} bâtiment(s) avec au moins une valeur sur ${r.rows.length} ligne(s) : zone climatique ${n(3)}, DH ZT ${n(5)}, DH ZNT ${n(6)}, système constructif ${n(7)}, brasseur d’air ${n(8)}, climatisation ${n(9)}, à vérifier ${n(10)}.`:'Aucune de ces valeurs dans les données recollées.';
+  const dhCol={5:DH_ZT,6:DH_ZNT};
   $('confort').innerHTML=rows.length?`<thead><tr>${CONFORT_HEAD.map(h=>`<th scope="col">${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(x=>`<tr tabindex="0" data-row="${x.i}">${x.cells.map((v,k)=>{ const ec=dhCol[k]?ecartTip(x.i,dhCol[k]):''; return `<td${ec?' class="sfdiff"':''} title="${esc([fmt(v),ec].filter(Boolean).join('\n'))}">${esc(fmt(v))}</td>`; }).join('')}</tr>`).join('')}</tbody>`:'';
 }
 function exportConfortCsv(){
   const rows=confortRows(); if(!rows.length){ toast('Aucune valeur de confort d’été à exporter.','error'); return; }
   downloadCsv('Confort_ete',CONFORT_HEAD,rows.map(x=>x.cells)); toast(`${rows.length} bâtiment(s) exporté(s).`,'success');
+}
+// Copie pour Google Sheets : tableau séparé par tabulations, nombres à la française (collage dans une feuille en français).
+async function copyConfortSheets(){
+  const rows=confortRows(); if(!rows.length){ toast('Aucune valeur de confort d’été à copier.','error'); return; }
+  const cell=v=>v==null?'':typeof v==='number'?String(v).replace('.',','):String(v).replace(/[\t\r\n]+/g,' ');
+  const tsv=[CONFORT_HEAD,...rows.map(x=>x.cells)].map(r=>r.map(cell).join('\t')).join('\n');
+  try{ await navigator.clipboard.writeText(tsv); }catch{ const t=document.createElement('textarea'); t.value=tsv; document.body.append(t); t.select(); document.execCommand('copy'); t.remove(); }
+  toast(`${rows.length} bâtiment(s) copiés : dans Google Sheets, cliquez sur A1 puis collez (Cmd+V).`,'success');
 }
 
 function renderAnru(){
@@ -679,6 +701,7 @@ $('helpBtn').addEventListener('click',()=>$('help').showModal());
 $('mentions').addEventListener('change',e=>{ const m=e.target.dataset.mention; if(m==null) return; e.target.checked?state.mentionsOff.delete(m):state.mentionsOff.add(m); renderAnru(); });
 $('anruCsv').addEventListener('click',exportAnruCsv);
 $('confortCsv').addEventListener('click',exportConfortCsv);
+$('confortSheets').addEventListener('click',copyConfortSheets);
 $('rsCsv').addEventListener('click',exportResearchCsv);
 ['rsGrid','rsRef','rsOwner'].forEach(id=>$(id).addEventListener('change',e=>{ state.rs[{rsGrid:'grid',rsRef:'ref',rsOwner:'owner'}[id]]=e.target.value; renderResearch(); }));
 let rsTimer; $('rsQ').addEventListener('input',e=>{ clearTimeout(rsTimer); rsTimer=setTimeout(()=>{ state.rs.q=e.target.value.trim(); renderResearch(); },180); });
