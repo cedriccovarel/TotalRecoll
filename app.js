@@ -412,13 +412,13 @@ $('vfImport').addEventListener('change',async e=>{ const f=e.target.files?.[0]; 
   e.target.value=''; });
 
 /* ---------- Confort d'été : valeurs normalisées par bâtiment ---------- */
-const CONFORT_HEAD=['Contrat','OPE',"Nom de l'opération",'Zone climatique','Bâtiment','DH zones traversantes','DH zones non traversantes','Système constructif','Brasseur d’air','Bâtiment climatisé','À vérifier'];
+const CONFORT_HEAD=['Contrat','OPE',"Nom de l'opération",'Département','Zone climatique','Bâtiment','DH zones traversantes','DH zones non traversantes','Système constructif','Brasseur d’air','Bâtiment climatisé','À vérifier'];
 function confortRows(){
   const r=state.result; if(!r) return [];
   const zones=opZones();
   return r.rows.map((row,i)=>{ const get=h=>{ const j=r.header.indexOf(h); return j<0?undefined:row[j]; }; const c=confortOf(get);
-    return {i,cells:[get(CONTRACT_COL),get(OPE_COL),get("Nom de l'opération"),zones.byRow[i]||'',get(BUILDING_COL),c.dhZt,c.dhZnt,c.system,c.fan,c.clim,c.note]}; })
-    .filter(x=>x.cells.slice(5).some(v=>!empty(v)));
+    return {i,cells:[get(CONTRACT_COL),get(OPE_COL),get("Nom de l'opération"),zones.depByRow[i]||'',zones.byRow[i]||'',get(BUILDING_COL),c.dhZt,c.dhZnt,c.system,c.fan,c.clim,c.note]}; })
+    .filter(x=>x.cells.slice(6).some(v=>!empty(v)));
 }
 // Zone climatique de chaque ligne (département : code postal, INSEE, nom d'opération, sinon géolocalisation), puis étendue à
 // toute l'opération : les bâtiments d'une même opération ont la même zone.
@@ -429,10 +429,10 @@ function rowDep(row,get){
   return {dep,how};
 }
 function opZones(){
-  const r=state.result; if(!r) return {byRow:[]};
-  const opOf=i=>r.meta[i]?.group||r.rows[i][r.header.indexOf(CONTRACT_COL)]||'ligne'+i, byOp=new Map(), own=[];
-  r.rows.forEach((row,i)=>{ const get=h=>{ const j=r.header.indexOf(h); return j<0?undefined:row[j]; }; const z=zoneOfDep(rowDep(row,get).dep); own[i]=z; if(z&&!byOp.has(opOf(i))) byOp.set(opOf(i),z); });
-  return {byRow:r.rows.map((_,i)=>own[i]||byOp.get(opOf(i))||'')};
+  const r=state.result; if(!r) return {byRow:[],depByRow:[]};
+  const opOf=i=>r.meta[i]?.group||r.rows[i][r.header.indexOf(CONTRACT_COL)]||'ligne'+i, byOp=new Map(), own=[], ownDep=[], depOp=new Map();
+  r.rows.forEach((row,i)=>{ const get=h=>{ const j=r.header.indexOf(h); return j<0?undefined:row[j]; }; const d=rowDep(row,get).dep, z=zoneOfDep(d); own[i]=z; ownDep[i]=d||''; if(z&&!byOp.has(opOf(i))) byOp.set(opOf(i),z); if(d&&!depOp.has(opOf(i))) depOp.set(opOf(i),d); });
+  return {byRow:r.rows.map((_,i)=>own[i]||byOp.get(opOf(i))||''),depByRow:r.rows.map((_,i)=>ownDep[i]||depOp.get(opOf(i))||'')};
 }
 /* ---------- Confort d'été : carte des zones climatiques ---------- */
 const ZONE_COLORS={H1a:'#1F5FA8',H1b:'#3B88D0',H1c:'#78B8E8',H2a:'#3FA586',H2b:'#B9A33F',H2c:'#E0912F',H2d:'#E5672A',H3:'#C1440E'};
@@ -482,8 +482,8 @@ function renderZones(){
 function renderConfort(){
   renderZones();
   const r=state.result, rows=confortRows(), n=k=>rows.filter(x=>!empty(x.cells[k])).length;
-  $('confortInfo').textContent=rows.length?`${rows.length} bâtiment(s) avec au moins une valeur sur ${r.rows.length} ligne(s) : zone climatique ${n(3)}, DH ZT ${n(5)}, DH ZNT ${n(6)}, système constructif ${n(7)}, brasseur d’air ${n(8)}, climatisation ${n(9)}, à vérifier ${n(10)}.`:'Aucune de ces valeurs dans les données recollées.';
-  const dhCol={5:DH_ZT,6:DH_ZNT};
+  $('confortInfo').textContent=rows.length?`${rows.length} bâtiment(s) avec au moins une valeur sur ${r.rows.length} ligne(s) : zone climatique ${n(4)}, DH ZT ${n(6)}, DH ZNT ${n(7)}, système constructif ${n(8)}, brasseur d’air ${n(9)}, climatisation ${n(10)}, à vérifier ${n(11)}.`:'Aucune de ces valeurs dans les données recollées.';
+  const dhCol={6:DH_ZT,7:DH_ZNT};
   $('confort').innerHTML=rows.length?`<thead><tr>${CONFORT_HEAD.map(h=>`<th scope="col">${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(x=>`<tr tabindex="0" data-row="${x.i}">${x.cells.map((v,k)=>{ const ec=dhCol[k]?ecartTip(x.i,dhCol[k]):''; return `<td${ec?' class="sfdiff"':''} title="${esc([fmt(v),ec].filter(Boolean).join('\n'))}">${esc(fmt(v))}</td>`; }).join('')}</tr>`).join('')}</tbody>`:'';
 }
 function exportConfortCsv(){
@@ -494,7 +494,9 @@ function exportConfortCsv(){
 async function copyConfortSheets(){
   const rows=confortRows(); if(!rows.length){ toast('Aucune valeur de confort d’été à copier.','error'); return; }
   const cell=v=>v==null?'':typeof v==='number'?String(v).replace('.',','):String(v).replace(/[\t\r\n]+/g,' ');
-  const tsv=[CONFORT_HEAD,...rows.map(x=>x.cells)].map(r=>r.map(cell).join('\t')).join('\n');
+  // Département « 01 » à « 09 » : collé tel quel, Google Sheets le changerait en nombre (1 à 9) ; ="01" le garde en texte.
+  const di=CONFORT_HEAD.indexOf('Département'), keep=(v,k)=>k===di&&/^0\d$/.test(String(v))?`="${v}"`:cell(v);
+  const tsv=[CONFORT_HEAD.map(cell),...rows.map(x=>x.cells.map(keep))].map(r=>r.join('\t')).join('\n');
   try{ await navigator.clipboard.writeText(tsv); }catch{ const t=document.createElement('textarea'); t.value=tsv; document.body.append(t); t.select(); document.execCommand('copy'); t.remove(); }
   toast(`${rows.length} bâtiment(s) copiés : dans Google Sheets, cliquez sur A1 puis collez (Cmd+V).`,'success');
 }
