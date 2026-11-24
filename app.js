@@ -12,6 +12,10 @@ try{ state.decisions=JSON.parse(localStorage.getItem('totalrecoll.decisions')||'
 // Adresses saisies pour les lignes non géolocalisées (gardées ici jusqu'à leur écriture dans la session, et après).
 try{ state.geoFixes=JSON.parse(localStorage.getItem('totalrecoll.geofixes')||'{}'); }catch{ state.geoFixes={}; }
 const saveGeoFixes=()=>{ try{ localStorage.setItem('totalrecoll.geofixes',JSON.stringify(state.geoFixes)); }catch{} };
+// Confort d'été : bâtiments décochés (exclus des exports et des statistiques par zone), gardés d'une session à l'autre.
+try{ state.confortOff=new Set(JSON.parse(localStorage.getItem('totalrecoll.confortOff')||'[]')); }catch{ state.confortOff=new Set(); }
+const saveConfortOff=()=>{ try{ localStorage.setItem('totalrecoll.confortOff',JSON.stringify([...state.confortOff])); }catch{} };
+state.confortF={q:'',zone:'',min:'',hideOff:false};
 const saveDecisions=()=>{ try{ localStorage.setItem('totalrecoll.decisions',JSON.stringify(state.decisions)); }catch{} };
 
 /* ---------- Lecture des fichiers ---------- */
@@ -417,9 +421,18 @@ function confortRows(){
   const r=state.result; if(!r) return [];
   const zones=opZones();
   return r.rows.map((row,i)=>{ const get=h=>{ const j=r.header.indexOf(h); return j<0?undefined:row[j]; }; const c=confortOf(get);
-    return {i,cells:[get(CONTRACT_COL),get(OPE_COL),get("Nom de l'opération"),zones.depByRow[i]||'',zones.byRow[i]||'',get(BUILDING_COL),c.dhZt,c.dhZnt,c.system,c.fan,c.clim,c.note]}; })
+    return {i,key:confortKey(get),cells:[get(CONTRACT_COL),get(OPE_COL),get("Nom de l'opération"),zones.depByRow[i]||'',zones.byRow[i]||'',get(BUILDING_COL),c.dhZt,c.dhZnt,c.system,c.fan,c.clim,c.note]}; })
     .filter(x=>x.cells.slice(6).some(v=>!empty(v)));
 }
+const confortKey=get=>[get(CONTRACT_COL),get(OPE_COL),get(BUILDING_COL)].map(v=>String(v??'').trim()).join('|');
+const dhNums=x=>[x.cells[6],x.cells[7]].filter(v=>!empty(v)).map(Number).filter(Number.isFinite);
+// Lignes affichées : filtre texte (contrat, OPE, opération, département, bâtiment), zone, décochés masqués ou non.
+function confortView(rows=confortRows(),withHidden=false){
+  const f=state.confortF, q=f.q.trim().toLowerCase();
+  return rows.filter(x=>(!q||[0,1,2,3,5].some(k=>String(x.cells[k]??'').toLowerCase().includes(q)))&&(!f.zone||x.cells[4]===f.zone)&&!(!withHidden&&f.hideOff&&state.confortOff.has(x.key)));
+}
+// Exports : lignes affichées et cochées.
+const confortExportRows=()=>confortView().filter(x=>!state.confortOff.has(x.key));
 // Zone climatique de chaque ligne (département : code postal, INSEE, nom d'opération, sinon géolocalisation), puis étendue à
 // toute l'opération : les bâtiments d'une même opération ont la même zone.
 function rowDep(row,get){
@@ -444,8 +457,8 @@ function zoneItems(){
   return r.rows.map((row,i)=>{ const get=h=>{ const j=col(h); return j<0?undefined:row[j]; }, c=confortOf(get);
     const {dep,how}=rowDep(row,get);
     const num=v=>empty(v)?null:Number(v);
-    return {i,op:r.meta[i].group||get(CONTRACT_COL)||'ligne'+i,dep,zone:zoneOfDep(dep),how,dhZt:num(c.dhZt),dhZnt:num(c.dhZnt),system:c.system,fan:c.fan,clim:c.clim}; })
-    .filter(x=>x.dhZt!=null||x.dhZnt!=null||x.system||x.fan||x.clim);
+    return {i,off:state.confortOff.has(confortKey(get)),op:r.meta[i].group||get(CONTRACT_COL)||'ligne'+i,dep,zone:zoneOfDep(dep),how,dhZt:num(c.dhZt),dhZnt:num(c.dhZnt),system:c.system,fan:c.fan,clim:c.clim}; })
+    .filter(x=>!x.off&&(x.dhZt!=null||x.dhZnt!=null||x.system||x.fan||x.clim));
 }
 const fr=v=>v==null?'—':v.toLocaleString('fr-FR',{maximumFractionDigits:1});
 function renderZoneCard(st){
@@ -481,18 +494,18 @@ function renderZones(){
 
 function renderConfort(){
   renderZones();
-  const r=state.result, rows=confortRows(), n=k=>rows.filter(x=>!empty(x.cells[k])).length;
-  $('confortInfo').textContent=rows.length?`${rows.length} bâtiment(s) avec au moins une valeur sur ${r.rows.length} ligne(s) : zone climatique ${n(4)}, DH ZT ${n(6)}, DH ZNT ${n(7)}, système constructif ${n(8)}, brasseur d’air ${n(9)}, climatisation ${n(10)}, à vérifier ${n(11)}.`:'Aucune de ces valeurs dans les données recollées.';
+  const r=state.result, rows=confortRows(), view=confortView(rows), off=rows.filter(x=>state.confortOff.has(x.key)).length, n=k=>rows.filter(x=>!empty(x.cells[k])).length;
+  $('confortInfo').textContent=rows.length?`${rows.length} bâtiment(s) avec au moins une valeur sur ${r.rows.length} ligne(s) : zone climatique ${n(4)}, DH ZT ${n(6)}, DH ZNT ${n(7)}, système constructif ${n(8)}, brasseur d’air ${n(9)}, climatisation ${n(10)}, à vérifier ${n(11)}. Affichés : ${view.length} · décochés : ${off} (exclus des exports et des statistiques par zone).`:'Aucune de ces valeurs dans les données recollées.';
   const dhCol={6:DH_ZT,7:DH_ZNT};
-  $('confort').innerHTML=rows.length?`<thead><tr>${CONFORT_HEAD.map(h=>`<th scope="col">${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(x=>`<tr tabindex="0" data-row="${x.i}">${x.cells.map((v,k)=>{ const ec=dhCol[k]?ecartTip(x.i,dhCol[k]):''; return `<td${ec?' class="sfdiff"':''} title="${esc([fmt(v),ec].filter(Boolean).join('\n'))}">${esc(fmt(v))}</td>`; }).join('')}</tr>`).join('')}</tbody>`:'';
+  $('confort').innerHTML=view.length?`<thead><tr><th scope="col" class="ck"><input type="checkbox" data-ckall aria-label="Cocher ou décocher les lignes affichées" ${view.every(x=>!state.confortOff.has(x.key))?'checked':''}></th>${CONFORT_HEAD.map(h=>`<th scope="col">${esc(h)}</th>`).join('')}</tr></thead><tbody>${view.map(x=>{ const off=state.confortOff.has(x.key); return `<tr tabindex="0" data-row="${x.i}"${off?' class="off"':''}><td class="ck"><input type="checkbox" data-ck="${esc(x.key)}" aria-label="Garder ce bâtiment" ${off?'':'checked'}></td>${x.cells.map((v,k)=>{ const ec=dhCol[k]?ecartTip(x.i,dhCol[k]):''; return `<td${ec?' class="sfdiff"':''} title="${esc([fmt(v),ec].filter(Boolean).join('\n'))}">${esc(fmt(v))}</td>`; }).join('')}</tr>`; }).join('')}</tbody>`:(rows.length?'<caption>Aucune ligne ne correspond aux filtres.</caption>':'');
 }
 function exportConfortCsv(){
-  const rows=confortRows(); if(!rows.length){ toast('Aucune valeur de confort d’été à exporter.','error'); return; }
+  const rows=confortExportRows(); if(!rows.length){ toast('Aucune valeur de confort d’été à exporter.','error'); return; }
   downloadCsv('Confort_ete',CONFORT_HEAD,rows.map(x=>x.cells)); toast(`${rows.length} bâtiment(s) exporté(s).`,'success');
 }
 // Copie pour Google Sheets : tableau séparé par tabulations, nombres à la française (collage dans une feuille en français).
 async function copyConfortSheets(){
-  const rows=confortRows(); if(!rows.length){ toast('Aucune valeur de confort d’été à copier.','error'); return; }
+  const rows=confortExportRows(); if(!rows.length){ toast('Aucune valeur de confort d’été à copier.','error'); return; }
   const cell=v=>v==null?'':typeof v==='number'?String(v).replace('.',','):String(v).replace(/[\t\r\n]+/g,' ');
   // Département « 01 » à « 09 » : collé tel quel, Google Sheets le changerait en nombre (1 à 9) ; ="01" le garde en texte.
   const di=CONFORT_HEAD.indexOf('Département'), keep=(v,k)=>k===di&&/^0\d$/.test(String(v))?`="${v}"`:cell(v);
@@ -670,6 +683,7 @@ function setupDrop(zone,input,handler){
 setupDrop($('dropSf'),$('sfFile'),files=>handleSf(files[0]));
 setupDrop($('dropEt'),$('etFile'),files=>handleEt(files));
 document.addEventListener('click',e=>{
+  if(e.target.matches?.('input[data-ck],input[data-ckall]')) return; // case Confort d'été : pas d'ouverture de la ligne
   const t=e.target.closest('button,[data-row],[data-open]'); if(!t) return;
   if(t.matches('[data-sort]')){ e.stopPropagation(); const col=+t.dataset.sort, dir=t.dataset.dir, same=state.sort.col===col&&state.sort.dir===dir; state.sort=same?{col:null,dir:''}:{col,dir}; state.page=0; renderTable(); return; }
   if(t.matches('[data-rm-sf]')){ state.sf=null; run(); }
@@ -704,6 +718,19 @@ $('mentions').addEventListener('change',e=>{ const m=e.target.dataset.mention; i
 $('anruCsv').addEventListener('click',exportAnruCsv);
 $('confortCsv').addEventListener('click',exportConfortCsv);
 $('confortSheets').addEventListener('click',copyConfortSheets);
+// Confort d'été : filtres et cases à cocher.
+const confortSet=(keys,off)=>{ for(const k of keys) off?state.confortOff.add(k):state.confortOff.delete(k); saveConfortOff(); renderConfort(); };
+$('confortQ').addEventListener('input',e=>{ state.confortF.q=e.target.value; renderConfort(); });
+$('confortZone').addEventListener('change',e=>{ state.confortF.zone=e.target.value; renderConfort(); });
+$('confortMin').addEventListener('input',e=>{ state.confortF.min=e.target.value; });
+$('confortHideOff').addEventListener('change',e=>{ state.confortF.hideOff=e.target.checked; renderConfort(); });
+$('confortOffEmpty').addEventListener('click',()=>{ const ks=confortView().filter(x=>!dhNums(x).length).map(x=>x.key); confortSet(ks,true); toast(`${ks.length} bâtiment(s) sans DH décoché(s).`,'success'); });
+$('confortOffLow').addEventListener('click',()=>{ const m=Number(String(state.confortF.min).replace(',','.')); if(!(m>0)){ toast('Indiquez d’abord un DH minimum.','error'); $('confortMin').focus(); return; }
+  const ks=confortView().filter(x=>dhNums(x).some(v=>v<m)).map(x=>x.key); confortSet(ks,true); toast(`${ks.length} bâtiment(s) avec un DH inférieur à ${m} décoché(s).`,'success'); });
+$('confortOnAll').addEventListener('click',()=>{ const ks=confortView(confortRows(),true).map(x=>x.key); const n=ks.filter(k=>state.confortOff.has(k)).length; confortSet(ks,false); toast(`${n} bâtiment(s) recoché(s).`,'success'); });
+$('confort').addEventListener('change',e=>{ const t=e.target;
+  if(t.matches('[data-ck]')) confortSet([t.dataset.ck],!t.checked);
+  else if(t.matches('[data-ckall]')) confortSet(confortView().map(x=>x.key),!t.checked); });
 $('rsCsv').addEventListener('click',exportResearchCsv);
 ['rsGrid','rsRef','rsOwner'].forEach(id=>$(id).addEventListener('change',e=>{ state.rs[{rsGrid:'grid',rsRef:'ref',rsOwner:'owner'}[id]]=e.target.value; renderResearch(); }));
 let rsTimer; $('rsQ').addEventListener('input',e=>{ clearTimeout(rsTimer); rsTimer=setTimeout(()=>{ state.rs.q=e.target.value.trim(); renderResearch(); },180); });

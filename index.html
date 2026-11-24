@@ -127,6 +127,15 @@
         <section class="zone-card" id="zoneCard" aria-live="polite"></section>
       </div>
       <div class="scroll"><table id="zoneSystems" class="grid"></table></div>
+      <div class="tools confort-filters">
+        <input id="confortQ" type="search" placeholder="Filtrer : contrat, OPE, opération, département, bâtiment" aria-label="Filtrer les bâtiments">
+        <select id="confortZone" aria-label="Zone climatique"><option value="">Toutes les zones</option><option>H1a</option><option>H1b</option><option>H1c</option><option>H2a</option><option>H2b</option><option>H2c</option><option>H2d</option><option>H3</option></select>
+        <label class="inline">DH minimum <input id="confortMin" type="number" min="0" step="1" inputmode="numeric"></label>
+        <button class="btn small" id="confortOffLow" type="button">Décocher les DH inférieurs</button>
+        <button class="btn small" id="confortOffEmpty" type="button">Décocher les DH vides</button>
+        <button class="btn small" id="confortOnAll" type="button">Tout recocher</button>
+        <label class="inline"><input id="confortHideOff" type="checkbox"> Masquer les décochés</label>
+      </div>
       <div class="tools"><p class="muted grow" id="confortInfo"></p><button class="btn small" id="confortSheets" type="button">Copier pour Google Sheets</button><button class="btn small" id="confortCsv" type="button">Exporter en CSV</button></div>
       <div class="scroll"><table id="confort" class="grid"></table></div>
       <p class="muted small">Système constructif : ossature bois (dont CLT, bois massif) ; béton ou brique + isolation extérieure si ITE ; + isolation intérieure ou répartie si ITI, monomur ou béton cellulaire. Une structure ou une isolation absente, mixte (ITE et ITI) ou hors de ces catégories reste vide, avec la raison dans « À vérifier ». Brasseur d’air : colonne Oui / Non, sinon le nombre de brasseurs. Climatisation : colonne Climatisation active, sinon le refroidissement après travaux. Zone climatique : département du code postal, du code INSEE, du nom d’opération ou de la géolocalisation (arrêté du 4 août 2021) ; contours IGN Admin Express, Licence Ouverte. DH : moyenne et médiane sur les bâtiments renseignés ; brasseur d’air et climatisation : part des opérations renseignées (une opération compte si un de ses bâtiments est équipé).</p>
@@ -250,6 +259,6 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="newosb-bridge.js?v=6.66.0"></script>
-<script type="module" src="app.js?v=38"></script>
+<script type="module" src="app.js?v=39"></script>
 </body>
 </html>

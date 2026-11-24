@@ -422,3 +422,11 @@ mark.hl-c{background:transparent;color:var(--et-ink);text-decoration:underline;t
 .geo-err{grid-column:3;margin:0;color:#e0786a}
 #geoQ{min-width:260px}
 @media (max-width:900px){ .geo-item{grid-template-columns:1fr} .geo-form,.geo-res,.geo-fix,.geo-err{grid-column:1} }
+
+/* Confort d'été : filtres et lignes décochées */
+.confort-filters label.inline{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.confort-filters label.inline input{flex:none;min-width:0}
+.confort-filters #confortMin{width:90px}
+#confort td.ck,#confort th.ck{width:32px;text-align:center}
+#confort tr.off td:not(.ck){opacity:.45;text-decoration:line-through}
+#confort caption{caption-side:top;text-align:left;padding:10px 0;color:var(--muted,inherit)}
