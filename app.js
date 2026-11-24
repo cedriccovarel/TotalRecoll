@@ -91,7 +91,8 @@ async function handleEt(files){
 function run(){
   renderSources();
   state.result=null;
-  if(state.sf&&state.et.length){
+  // Le fichier Tous contrats suffit : sans session ExtracTerre, le tableau est publié tel quel (lignes « Salesforce seul »).
+  if(state.sf){
     try{ state.result=recoll(state.sf,state.et.flatMap(e=>e.ops.map(op=>withGeoFixes(op,e.name,state.geoFixes))),{keepSalesforce:document.querySelector('input[name=default]:checked').value==='sf',decisions:state.decisions,anru:state.anru}); }
     catch(e){ toast(e.message,'error'); }
   }
